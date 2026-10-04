@@ -128,7 +128,7 @@ function App() {
   const getImageUrl = (rawImg) => {
     if (!rawImg) return "";
     let imgPath = "";
-    
+
     if (typeof rawImg === "string") {
       imgPath = rawImg;
     } else if (typeof rawImg === "object") {
@@ -139,13 +139,14 @@ function App() {
     if (imgPath.startsWith("http://") || imgPath.startsWith("https://")) {
       return imgPath;
     }
-    
+
     // ပုံ path စတင်ရာတွင် slash ပါမပါ စစ်ဆေးခြင်း
     const formattedPath = imgPath.startsWith("/") ? imgPath : `/${imgPath}`;
     return `https://myanmar-real-estate-1.onrender.com${formattedPath}`;
   };
 
-  const isAdmin = isAuthenticated && user && (user.role === "admin" || user.isAdmin);
+  const isAdmin =
+    isAuthenticated && user && (user.role === "admin" || user.isAdmin);
 
   const activeProperties = properties.filter((item) => {
     const status = (item.status || "").trim();
@@ -223,14 +224,18 @@ function App() {
                       const images = item.images || [];
                       const currentIndex = cardImageIndices[item.id] || 0;
 
+                      console.log("Property Item:", item);
+                      console.log("Current User:", user);
+                      console.log("Is Owner or Admin?:", isOwnerOrAdmin);
+
                       // 🛠️ Edit / Delete ခလုတ်ပေါ်စေရန် ပိုင်ရှင် သို့မဟုတ် Admin ဟုတ်မဟုတ် သေချာစစ်ဆေးခြင်း
                       const isOwnerOrAdmin =
                         isAuthenticated &&
                         user &&
-                        (user.role === "admin" || 
-                         user.isAdmin || 
-                         String(user.id) === String(item.owner_id) || 
-                         String(user._id) === String(item.owner_id));
+                        (user.role === "admin" ||
+                          user.isAdmin ||
+                          String(user.id) === String(item.owner_id) ||
+                          String(user._id) === String(item.owner_id));
 
                       const imgUrl = getImageUrl(images[currentIndex]);
 
@@ -244,10 +249,10 @@ function App() {
                             {images.length > 0 ? (
                               <>
                                 <img
-  src={imgUrl}
-  alt={item.title}
-  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-/>
+                                  src={imgUrl}
+                                  alt={item.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                />
 
                                 {images.length > 1 && (
                                   <>
