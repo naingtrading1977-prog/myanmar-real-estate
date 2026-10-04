@@ -12,7 +12,8 @@ async function validatePropertyImage(filePath) {
     const base64Image = fileBuffer.toString("base64");
 
     const chatCompletion = await groq.chat.completions.create({
-      model: "llama-3.2-11b-vision-preview",
+      // 🛠️ Decommissioned ဖြစ်သွားသော model အစား လက်ရှိသုံးလို့ရသည့် model သို့ ပြောင်းထားသည်
+      model: "llama-3.1-70b-versatile",
       messages: [
         {
           role: "user",
@@ -266,7 +267,7 @@ exports.updateProperty = async (req, res) => {
     title,
     description,
     property_type,
-    listing_type, // 🏷️ အရောင်း/အငှား အသစ်
+    listing_type,
     status,
     price,
     area_sqft,
@@ -335,7 +336,6 @@ exports.updateProperty = async (req, res) => {
 
     const updatedProperty = result.rows[0];
 
-    // ပုံအသစ်များ (`req.files`) တင်ထားပါက ပုံဟောင်းများဖျက်ပြီး အသစ်ဖြင့် အစားထိုးခြင်း
     if (req.files && req.files.length > 0) {
       await pool.query(`DELETE FROM property_images WHERE property_id = $1`, [
         propertyId,
@@ -350,7 +350,6 @@ exports.updateProperty = async (req, res) => {
       }
     }
 
-    // ပုံအပါအဝင် အချက်အလက်များကို ပြန်လည်ဆွဲထုတ်ရန်
     const imagesQuery = `SELECT id, image_url AS url, image_type FROM property_images WHERE property_id = $1;`;
     const imagesResult = await pool.query(imagesQuery, [propertyId]);
     updatedProperty.images = imagesResult.rows;
