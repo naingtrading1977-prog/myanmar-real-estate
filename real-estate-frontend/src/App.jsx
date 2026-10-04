@@ -367,7 +367,7 @@ function App() {
                                   onClick={(e) => handleDeleteClick(e, item.id)}
                                   className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg transition"
                                 >
-                                  🗑️ Delete
+                                  🗑️️ Delete
                                 </button>
                               </div>
                             )}
