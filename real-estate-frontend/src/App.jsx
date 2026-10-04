@@ -29,12 +29,13 @@ function App() {
   const fetchPropertiesData = async () => {
     try {
       const res = await getProperties();
-      console.log("API Response Properties:", res); // Backend က ဘာတွေပို့လဲ စစ်ရန်
+      console.log("API Response Properties:", res);
 
       const rawData = res.data || res;
       if (Array.isArray(rawData)) {
         const formattedProperties = rawData.map((p) => {
-          // ပုံများကို array ဖြစ်အောင် သေချာ formatting လုပ်ခြင်း
+          console.log("Single Property Images Data:", p.images); // 🔍 ပုံဒေတာပုံစံကို စစ်ရန်
+
           let parsedImages = [];
           if (Array.isArray(p.images)) {
             parsedImages = p.images;
@@ -143,7 +144,7 @@ function App() {
     if (typeof rawImg === "string") {
       imgPath = rawImg;
     } else if (typeof rawImg === "object") {
-      imgPath = rawImg.url || rawImg.image_path || rawImg.path || "";
+      imgPath = rawImg.url || rawImg.image_path || rawImg.path || rawImg.secure_url || "";
     }
 
     if (!imgPath) return "";
@@ -231,7 +232,6 @@ function App() {
                       const images = item.images || [];
                       const currentIndex = cardImageIndices[item.id] || 0;
 
-                      // 🛠️ ပိုင်ရှင် သို့မဟုတ် Admin ဟုတ်မဟုတ် အရင်စစ်ဆေးခြင်း
                       const isOwnerOrAdmin =
                         isAuthenticated &&
                         user &&
@@ -322,14 +322,13 @@ function App() {
                               </div>
                             </div>
 
-                            {/* 🛠 Edit / Delete ခလုတ်များ */}
                             {isOwnerOrAdmin && (
                               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                                 <button
                                   onClick={(e) => handleEditClick(e, item)}
                                   className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition"
                                 >
-                                  ✏️ Edit
+                                  ✏️️ Edit
                                 </button>
                                 <button
                                   onClick={(e) => handleDeleteClick(e, item.id)}
