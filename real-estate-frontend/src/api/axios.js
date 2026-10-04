@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "[https://myanmar-real-estate-1.onrender.com/api](https://myanmar-real-estate-1.onrender.com/api)", // Render ပေါ်ရှိ Backend URL အမှန်ကို ထည့်ပါ
+  baseURL: "https://myanmar-real-estate-1.onrender.com/api",
 });
 
 API.interceptors.request.use((config) => {
