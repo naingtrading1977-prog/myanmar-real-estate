@@ -29,28 +29,42 @@ function App() {
   const fetchPropertiesData = async () => {
     try {
       const res = await getProperties();
-      if (res && res.data) {
-        const formattedProperties = res.data.map((p) => ({
-          ...p,
-          id: p.id,
-          title: p.title,
-          description: p.description,
-          price: p.price,
-          type: p.property_type || p.type || "Apartment",
-          listing_type:
-            p.listing_type || (p.status === "For Rent" ? "Rent" : "Sale"),
-          status: p.status || "Available",
-          lat: parseFloat(p.latitude) || 16.8409,
-          lng: parseFloat(p.longitude) || 96.1735,
-          images: p.images || [],
-          owner_id: p.owner_id,
-          contact_phone: p.contact_phone || "",
-          views: p.views || 0,
-          average_rating: p.average_rating || 0,
-        }));
+      console.log("API Response Properties:", res); // Backend က ဘာတွေပို့လဲ စစ်ရန်
+
+      const rawData = res.data || res;
+      if (Array.isArray(rawData)) {
+        const formattedProperties = rawData.map((p) => {
+          // ပုံများကို array ဖြစ်အောင် သေချာ formatting လုပ်ခြင်း
+          let parsedImages = [];
+          if (Array.isArray(p.images)) {
+            parsedImages = p.images;
+          } else if (typeof p.images === "string") {
+            try {
+              parsedImages = JSON.parse(p.images);
+            } catch {
+              parsedImages = [p.images];
+            }
+          }
+
+          return {
+            ...p,
+            id: p.id || p._id,
+            title: p.title || "Untitled Property",
+            description: p.description || "",
+            price: p.price || 0,
+            type: p.property_type || p.type || "Apartment",
+            listing_type: p.listing_type || (p.status === "For Rent" ? "Rent" : "Sale"),
+            status: p.status || "Available",
+            lat: parseFloat(p.latitude) || 16.8409,
+            lng: parseFloat(p.longitude) || 96.1735,
+            images: parsedImages,
+            owner_id: p.owner_id || p.user_id,
+            contact_phone: p.contact_phone || "",
+            views: p.views || 0,
+            average_rating: p.average_rating || 0,
+          };
+        });
         setProperties(formattedProperties);
-      } else if (Array.isArray(res)) {
-        setProperties(res);
       }
     } catch (err) {
       console.error("Failed to load properties", err);
@@ -85,14 +99,12 @@ function App() {
     setIsDetailModalOpen(true);
   };
 
-  // 🛠️ Edit ပြုလုပ်ရန် Modal ဖွင့်ခြင်း
   const handleEditClick = (e, item) => {
     e.stopPropagation();
     setSelectedProperty(item);
     setIsEditModalOpen(true);
   };
 
-  // 🛠️️ Delete ပြုလုပ်ခြင်း
   const handleDeleteClick = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("ဒီကြော်ငြာကို ဖျက်မှာ သေချာပါသလား?")) {
@@ -124,7 +136,6 @@ function App() {
     });
   };
 
-  // 🖼️ ပုံလိပ်စာ အမှန်ရရှိရန် Helper Function (Fixed)
   const getImageUrl = (rawImg) => {
     if (!rawImg) return "";
     let imgPath = "";
@@ -140,7 +151,6 @@ function App() {
       return imgPath;
     }
 
-    // ပုံ path စတင်ရာတွင် slash ပါမပါ စစ်ဆေးခြင်း
     const formattedPath = imgPath.startsWith("/") ? imgPath : `/${imgPath}`;
     return `https://myanmar-real-estate-1.onrender.com${formattedPath}`;
   };
@@ -170,7 +180,6 @@ function App() {
           onOpenPostModal={() => setIsAddPropertyOpen(true)}
         />
 
-        {/* 📢 Announcement / Marquee Banner */}
         <div className="bg-emerald-600 text-white py-2 px-4 shadow-inner flex items-center">
           <span className="bg-emerald-700 text-xs font-bold px-2 py-1 rounded mr-3 uppercase tracking-wider">
             ကြော်ငြာ
@@ -187,7 +196,6 @@ function App() {
             <AdminDashboard />
           ) : (
             <>
-              {/* 🗺️ Location Map View */}
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">
                   Location Map View
@@ -200,7 +208,6 @@ function App() {
                 </div>
               </div>
 
-              {/* 🏠 Available Listings */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center mb-2">
                   <h2 className="text-xl font-bold text-slate-800">
@@ -224,18 +231,13 @@ function App() {
                       const images = item.images || [];
                       const currentIndex = cardImageIndices[item.id] || 0;
 
-                      console.log("Property Item:", item);
-                      console.log("Current User:", user);
-                      console.log("Is Owner or Admin?:", isOwnerOrAdmin);
-
-                      // 🛠️ Edit / Delete ခလုတ်ပေါ်စေရန် ပိုင်ရှင် သို့မဟုတ် Admin ဟုတ်မဟုတ် သေချာစစ်ဆေးခြင်း
+                      // 🛠️ ပိုင်ရှင် သို့မဟုတ် Admin ဟုတ်မဟုတ် အရင်စစ်ဆေးခြင်း
                       const isOwnerOrAdmin =
                         isAuthenticated &&
                         user &&
                         (user.role === "admin" ||
                           user.isAdmin ||
-                          String(user.id) === String(item.owner_id) ||
-                          String(user._id) === String(item.owner_id));
+                          String(user.id || user._id) === String(item.owner_id));
 
                       const imgUrl = getImageUrl(images[currentIndex]);
 
@@ -246,7 +248,7 @@ function App() {
                           className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col justify-between"
                         >
                           <div className="h-48 bg-slate-900 relative overflow-hidden">
-                            {images.length > 0 ? (
+                            {images.length > 0 && images[currentIndex] ? (
                               <>
                                 <img
                                   src={imgUrl}
@@ -261,7 +263,7 @@ function App() {
                                         handlePrevImage(
                                           e,
                                           item.id,
-                                          images.length,
+                                          images.length
                                         )
                                       }
                                       className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
@@ -273,7 +275,7 @@ function App() {
                                         handleNextImage(
                                           e,
                                           item.id,
-                                          images.length,
+                                          images.length
                                         )
                                       }
                                       className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
