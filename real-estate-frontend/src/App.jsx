@@ -124,6 +124,14 @@ function App() {
     });
   };
 
+  // 🖼️ ပုံလိပ်စာ အမှန်ရရှိရန် Helper Function
+  const getImageUrl = (rawImg) => {
+    const imgPath = typeof rawImg === "string" ? rawImg : rawImg?.url;
+    if (!imgPath) return "";
+    if (imgPath.startsWith("http")) return imgPath;
+    return `https://myanmar-real-estate-1.onrender.com${imgPath}`;
+  };
+
   const isAdmin = isAuthenticated && user && user.role === "admin";
 
   const activeProperties = properties.filter((item) => {
@@ -208,18 +216,7 @@ function App() {
                         user &&
                         (user.role === "admin" || user.id === item.owner_id);
 
-                      const rawImg = images[currentIndex];
-                      const imgUrl = rawImg
-                        ? typeof rawImg === "string"
-                          ? rawImg.startsWith("http")
-                            ? rawImg
-                            : `http://localhost:5002${rawImg}`
-                          : rawImg.url
-                            ? rawImg.url.startsWith("http")
-                              ? rawImg.url
-                              : `http://localhost:5002${rawImg.url}`
-                            : ""
-                        : "";
+                      const imgUrl = getImageUrl(images[currentIndex]);
 
                       return (
                         <div
