@@ -1,8 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-// 👈 Upload (Multer) middleware ကို import လုပ်ပါ (အကို့ project ထဲက upload config ရှိရာ လမ်းကြောင်းအတိုင်း ချိန်ရန်)
-const upload = require("../middleware/uploadMiddleware"); // ဥပမာ - middleware ဖိုင်ထဲတွင် ရှိလျှင်
+const upload = require("../middleware/uploadMiddleware");
 
 const {
   createProperty,
@@ -15,19 +14,18 @@ const {
   rateProperty,
 } = require("../controllers/propertyController");
 
-// Routes များ
+// 👇 အထူး Routes များကို ဒိုင်နမစ် `/:id` ရဲ့ အပေါ်ဆုံးမှာ အမြဲထားရပါမည်
 router.get("/", getProperties);
-router.post("/", upload.array("images"), createProperty); // ဖန်တီးသည့်အခါလည်း ပုံပါထည့်နိုင်ရန်
-router.get("/nearby", getNearbyProperties);
+router.get("/nearby", getNearbyProperties); 
 
 // Rating ပေးသည့် Route
 router.post("/:id/rating", rateProperty);
 
+// 👇 ဒိုင်နမစ် Route `:id` ကို အောက်နားသို့ ရွှေ့ပါ
 router.get("/:id", getPropertyById);
 
-// 👇 updateProperty ကို propertyController.updateProperty အစား updateProperty လို့ပဲ တိုက်ရိုက်သုံးပါ
+router.post("/", upload.array("images"), createProperty);
 router.put("/:id", upload.array("images"), updateProperty);
-
 router.delete("/:id", deleteProperty);
 
 module.exports = router;
