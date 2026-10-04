@@ -61,6 +61,7 @@ function App() {
     fetchPropertiesData();
   }, []);
 
+  // 🛠️ Auto Slide Logic
   useEffect(() => {
     const interval = setInterval(() => {
       setCardImageIndices((prev) => {
@@ -84,18 +85,20 @@ function App() {
     setIsDetailModalOpen(true);
   };
 
+  // 🛠️ Edit ပြုလုပ်ရန် Modal ဖွင့်ခြင်း
   const handleEditClick = (e, item) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Card Click မဖြစ်သွားစေရန်
     setSelectedProperty(item);
     setIsEditModalOpen(true);
   };
 
+  // 🛠️ Delete ပြုလုပ်ခြင်း
   const handleDeleteClick = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("ဒီကြော်ငြာကို ဖျက်မှာ သေချာပါသလား?")) {
       try {
         await deleteProperty(id);
-        fetchPropertiesData();
+        fetchPropertiesData(); // စာရင်းကို အသစ်ပြန်ဆွဲမည်
       } catch (err) {
         console.error("Failed to delete property", err);
         alert("ဖျက်ရာတွင် အမှားအယွင်း ရှိနေပါသည်။");
@@ -121,6 +124,7 @@ function App() {
     });
   };
 
+  // 🖼️ ပုံလိပ်စာ အမှန်ရရှိရန် Helper Function
   const getImageUrl = (rawImg) => {
     const imgPath = typeof rawImg === "string" ? rawImg : rawImg?.url;
     if (!imgPath) return "";
@@ -152,6 +156,7 @@ function App() {
           onOpenPostModal={() => setIsAddPropertyOpen(true)}
         />
 
+        {/* 📢 Announcement / Marquee Banner */}
         <div className="bg-emerald-600 text-white py-2 px-4 shadow-inner flex items-center">
           <span className="bg-emerald-700 text-xs font-bold px-2 py-1 rounded mr-3 uppercase tracking-wider">
             ကြော်ငြာ
@@ -168,6 +173,7 @@ function App() {
             <AdminDashboard />
           ) : (
             <>
+              {/* 🗺️ Location Map View */}
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">
                   Location Map View
@@ -180,6 +186,7 @@ function App() {
                 </div>
               </div>
 
+              {/* 🏠 Available Listings */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center mb-2">
                   <h2 className="text-xl font-bold text-slate-800">
@@ -203,11 +210,8 @@ function App() {
                       const images = item.images || [];
                       const currentIndex = cardImageIndices[item.id] || 0;
 
-                      // မူလအတိုင်း ပိုင်ရှင် သို့မဟုတ် Admin ကိုသာ စစ်ဆေးခြင်း
-                      const isOwnerOrAdmin =
-                        isAuthenticated &&
-                        user &&
-                        (user.role === "admin" || user.id === item.owner_id);
+                      // 🛠️ Login ဝင်ထားသူဖြစ်ပါက Edit / Delete ခလုတ်ပေါ်စေရန် (သို့မဟုတ် owner_id စစ်ဆေးရန်)
+                      const isOwnerOrAdmin = isAuthenticated && user;
 
                       const imgUrl = getImageUrl(images[currentIndex]);
 
@@ -292,6 +296,7 @@ function App() {
                               </div>
                             </div>
 
+                            {/* 🛠️️ Edit / Delete ခလုတ်များ */}
                             {isOwnerOrAdmin && (
                               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                                 <button
