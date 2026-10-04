@@ -13,7 +13,7 @@ app.use(
   cors({
     origin: true, // လာသမျှ Domain တိုင်းကို ခွင့်ပြုသည်
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
