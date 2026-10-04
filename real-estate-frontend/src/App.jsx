@@ -210,11 +210,8 @@ function App() {
                       const images = item.images || [];
                       const currentIndex = cardImageIndices[item.id] || 0;
 
-                      // 🛠️ လက်ရှိ Login ဝင်ထားသူသည် ဤပိုင်ဆိုင်မှုကို တင်ထားသူ (သို့မဟုတ် Admin) ဟုတ်မဟုတ် စစ်ဆေးခြင်း
-                      const isOwnerOrAdmin =
-                        isAuthenticated &&
-                        user &&
-                        (user.role === "admin" || user.id === item.owner_id);
+                      // 🛠️ Login ဝင်ထားသူဖြစ်ပါက Edit / Delete ခလုတ်ပေါ်စေရန် (သို့မဟုတ် owner_id စစ်ဆေးရန်)
+                      const isOwnerOrAdmin = isAuthenticated && user;
 
                       const imgUrl = getImageUrl(images[currentIndex]);
 
@@ -299,7 +296,7 @@ function App() {
                               </div>
                             </div>
 
-                            {/* 🛠️ ပိုင်ရှင် (သို့) Admin ဖြစ်မှသာ Edit / Delete ခလုတ်များ ပေါ်လာမည် */}
+                            {/* 🛠️️ Edit / Delete ခလုတ်များ */}
                             {isOwnerOrAdmin && (
                               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                                 <button
@@ -337,7 +334,6 @@ function App() {
         onPropertyAdded={fetchPropertiesData}
       />
 
-      {/* 🛠️ Edit Property Modal ချိတ်ဆက်ပေးခြင်း (Data အသစ်ပြန်ဆွဲရန် onPropertyUpdated ထည့်ထားသည်) */}
       <EditPropertyModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
