@@ -30,22 +30,22 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     setError("");
 
     try {
-      const dataToSend = new FormData();
-      dataToSend.append("name", formData.name);
-      dataToSend.append("email", formData.email);
-      dataToSend.append("password", formData.password);
-      dataToSend.append("phone", formData.phone);
-      dataToSend.append("role", formData.role);
-      dataToSend.append("plan", formData.plan);
-
-      if (formData.plan === "paid" && paymentProof) {
-        dataToSend.append("payment_proof", paymentProof);
-      }
-
+      // 🛠️ FormData အစား JSON ပုံစံဖြင့် ပို့ပါ
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
-        body: dataToSend,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          role: formData.role,
+          plan: formData.plan,
+        }),
       });
+      
       const data = await response.json();
 
       if (response.ok) {
