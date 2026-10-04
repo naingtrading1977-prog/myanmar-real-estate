@@ -337,7 +337,7 @@ function App() {
         onPropertyAdded={fetchPropertiesData}
       />
 
-      {/* 🛠️ Edit Property Modal ချိတ်ဆက်ပေးခြင်း */}
+      {/* 🛠️ Edit Property Modal ချိတ်ဆက်ပေးခြင်း (Data အသစ်ပြန်ဆွဲရန် onPropertyUpdated ထည့်ထားသည်) */}
       <EditPropertyModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
