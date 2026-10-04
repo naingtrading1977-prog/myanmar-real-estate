@@ -11,9 +11,9 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: true, // လာသမျှ Domain တိုင်းကို ခွင့်ပြုသည်
     credentials: true,
-  }),
+  })
 );
 
 app.use(express.json());
