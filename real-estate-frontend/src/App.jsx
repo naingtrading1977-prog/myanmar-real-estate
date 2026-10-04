@@ -87,18 +87,18 @@ function App() {
 
   // 🛠️ Edit ပြုလုပ်ရန် Modal ဖွင့်ခြင်း
   const handleEditClick = (e, item) => {
-    e.stopPropagation(); // Card Click မဖြစ်သွားစေရန်
+    e.stopPropagation();
     setSelectedProperty(item);
     setIsEditModalOpen(true);
   };
 
-  // 🛠️ Delete ပြုလုပ်ခြင်း
+  // 🛠️️ Delete ပြုလုပ်ခြင်း
   const handleDeleteClick = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("ဒီကြော်ငြာကို ဖျက်မှာ သေချာပါသလား?")) {
       try {
         await deleteProperty(id);
-        fetchPropertiesData(); // စာရင်းကို အသစ်ပြန်ဆွဲမည်
+        fetchPropertiesData();
       } catch (err) {
         console.error("Failed to delete property", err);
         alert("ဖျက်ရာတွင် အမှားအယွင်း ရှိနေပါသည်။");
@@ -124,15 +124,28 @@ function App() {
     });
   };
 
-  // 🖼️ ပုံလိပ်စာ အမှန်ရရှိရန် Helper Function
+  // 🖼️ ပုံလိပ်စာ အမှန်ရရှိရန် Helper Function (Fixed)
   const getImageUrl = (rawImg) => {
-    const imgPath = typeof rawImg === "string" ? rawImg : rawImg?.url;
+    if (!rawImg) return "";
+    let imgPath = "";
+    
+    if (typeof rawImg === "string") {
+      imgPath = rawImg;
+    } else if (typeof rawImg === "object") {
+      imgPath = rawImg.url || rawImg.image_path || rawImg.path || "";
+    }
+
     if (!imgPath) return "";
-    if (imgPath.startsWith("http")) return imgPath;
-    return `https://myanmar-real-estate-1.onrender.com${imgPath}`;
+    if (imgPath.startsWith("http://") || imgPath.startsWith("https://")) {
+      return imgPath;
+    }
+    
+    // ပုံ path စတင်ရာတွင် slash ပါမပါ စစ်ဆေးခြင်း
+    const formattedPath = imgPath.startsWith("/") ? imgPath : `/${imgPath}`;
+    return `https://myanmar-real-estate-1.onrender.com${formattedPath}`;
   };
 
-  const isAdmin = isAuthenticated && user && user.role === "admin";
+  const isAdmin = isAuthenticated && user && (user.role === "admin" || user.isAdmin);
 
   const activeProperties = properties.filter((item) => {
     const status = (item.status || "").trim();
@@ -210,8 +223,14 @@ function App() {
                       const images = item.images || [];
                       const currentIndex = cardImageIndices[item.id] || 0;
 
-                      // 🛠️ Login ဝင်ထားသူဖြစ်ပါက Edit / Delete ခလုတ်ပေါ်စေရန် (သို့မဟုတ် owner_id စစ်ဆေးရန်)
-                      const isOwnerOrAdmin = isAuthenticated && user;
+                      // 🛠️ Edit / Delete ခလုတ်ပေါ်စေရန် ပိုင်ရှင် သို့မဟုတ် Admin ဟုတ်မဟုတ် သေချာစစ်ဆေးခြင်း
+                      const isOwnerOrAdmin =
+                        isAuthenticated &&
+                        user &&
+                        (user.role === "admin" || 
+                         user.isAdmin || 
+                         String(user.id) === String(item.owner_id) || 
+                         String(user._id) === String(item.owner_id));
 
                       const imgUrl = getImageUrl(images[currentIndex]);
 
@@ -228,6 +247,9 @@ function App() {
                                   src={imgUrl}
                                   alt={item.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                  onError={(e) => {
+                                    e.target.src = "https://via.placeholder.com/400x300?text=No+Image";
+                                  }}
                                 />
 
                                 {images.length > 1 && (
@@ -296,7 +318,7 @@ function App() {
                               </div>
                             </div>
 
-                            {/* 🛠️️ Edit / Delete ခလုတ်များ */}
+                            {/* 🛠 Edit / Delete ခလုတ်များ */}
                             {isOwnerOrAdmin && (
                               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                                 <button
