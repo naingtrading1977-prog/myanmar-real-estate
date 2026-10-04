@@ -38,7 +38,7 @@ function App() {
 
           let parsedImages = [];
           if (Array.isArray(p.images)) {
-            // Object သို့မဟုတ် String ဖြစ်နေသော ပုံဒေတာများကို URL String သီးသန့် Array အဖြစ် ပြောင်းလဲခြင်း
+            // Object သို့မဟုတ် String ဖြစ်နေသော ပုံဒေတာများကို URL String သီးသန့် Array အဖြစ်သို့ အသေအချာ ထုတ်ယူခြင်း
             parsedImages = p.images
               .map((img) => {
                 if (typeof img === "string") return img;
@@ -48,6 +48,7 @@ function App() {
                     img.image_path ||
                     img.path ||
                     img.secure_url ||
+                    img.imageUrl ||
                     ""
                   );
                 }
@@ -62,7 +63,7 @@ function App() {
                   .map((img) =>
                     typeof img === "string"
                       ? img
-                      : img?.url || img?.image_path || ""
+                      : img?.url || img?.image_path || img?.path || "",
                   )
                   .filter(Boolean);
               } else {
@@ -296,7 +297,7 @@ function App() {
                                         handlePrevImage(
                                           e,
                                           item.id,
-                                          images.length
+                                          images.length,
                                         )
                                       }
                                       className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
@@ -308,7 +309,7 @@ function App() {
                                         handleNextImage(
                                           e,
                                           item.id,
-                                          images.length
+                                          images.length,
                                         )
                                       }
                                       className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
