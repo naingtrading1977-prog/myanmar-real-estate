@@ -244,13 +244,10 @@ function App() {
                             {images.length > 0 ? (
                               <>
                                 <img
-                                  src={imgUrl}
-                                  alt={item.title}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                                  onError={(e) => {
-                                    e.target.src = "https://via.placeholder.com/400x300?text=No+Image";
-                                  }}
-                                />
+  src={imgUrl}
+  alt={item.title}
+  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+/>
 
                                 {images.length > 1 && (
                                   <>
