@@ -2,18 +2,16 @@ const { pool } = require("../config/db");
 const Groq = require("groq-sdk");
 const fs = require("fs");
 
-// Groq AI Setup (.env မှ GROQ_API_KEY ကို ယူသည်)
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Helper function: Groq Vision AI ဖြင့် အိမ်ခြံမြေ ပုံစံ ဟုတ်မဟုတ် စစ်ဆေးရန်
 async function validatePropertyImage(filePath) {
   try {
     const fileBuffer = fs.readFileSync(filePath);
     const base64Image = fileBuffer.toString("base64");
 
     const chatCompletion = await groq.chat.completions.create({
-      // 🛠️ Decommissioned ဖြစ်သွားသော model အစား လက်ရှိသုံးလို့ရသည့် model သို့ ပြောင်းထားသည်
-      model: "llama-3.1-70b-versatile",
+      // 🛠️ လက်ရှိသုံးလို့ရသည့် model သို့ ပြောင်းထားသည်
+      model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "user",
@@ -40,11 +38,10 @@ async function validatePropertyImage(filePath) {
     return resultText.includes("YES");
   } catch (err) {
     console.error("Groq AI Validation Error:", err);
-    return true; // Error ဖြစ်လျှင် လုပ်ငန်းစဉ်မရပ်သွားစေရန် ဆက်ခွင့်ပြုသည်
+    return true; 
   }
 }
 
-// 1. Create Property (AI Image Validation ထည့်သွင်းထားသည်)
 exports.createProperty = async (req, res) => {
   const {
     title,
@@ -67,20 +64,18 @@ exports.createProperty = async (req, res) => {
   const owner_id = req.user ? req.user.id : null;
 
   try {
-    // 🔍 ပုံများပါလာပါက Groq Vision AI ဖြင့် အိမ်ခြံမြေ ဟုတ်မဟုတ် စစ်ဆေးခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         if (file.mimetype.startsWith("image/")) {
           const isValidPropertyImage = await validatePropertyImage(file.path);
 
           if (!isValidPropertyImage) {
-            // မမှန်ကန်သောပုံပါက temp ဖိုင်များကို ဖျက်ပြီး Error ပြန်မည်
             for (const f of req.files) {
               if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
             }
             return res.status(400).json({
               error:
-                "တင်လိုက်သော ပုံများထဲတွင် အိမ်၊ ကွန်ဒို၊ မြေကွပ် စသည့် အိမ်ခြံမြေနှင့် မသက်ဆိုင်သည့် ပုံများ ပါဝင်နေပါသည်။ ကျေးဇူးပြု၍ မှန်ကန်သော ပုံများကိုသာ တင်ပေးပါ။",
+                "တင်လိုက်သော ပုံများထဲတွင် အိမ်ခြံမြေနှင့် မသက်ဆိုင်သည့် ပုံများ ပါဝင်နေပါသည်။ ကျေးဇူးပြု၍ မှန်ကန်သော ပုံများကိုသာ တင်ပေးပါ။",
             });
           }
         }
@@ -122,7 +117,6 @@ exports.createProperty = async (req, res) => {
     const result = await pool.query(query, values);
     const newProperty = result.rows[0];
 
-    // ပုံများသိမ်းဆည်းခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const imageUrl = `/uploads/${file.filename}`;
@@ -147,7 +141,6 @@ exports.createProperty = async (req, res) => {
   }
 };
 
-// 2. Fetch All Properties with Lat/Lng, Images, Listing Type, etc.
 exports.getProperties = async (req, res) => {
   try {
     const query = `
@@ -178,7 +171,6 @@ exports.getProperties = async (req, res) => {
   }
 };
 
-// 3. Search Properties Nearby GPS Location (PostGIS Radius Search)
 exports.getNearbyProperties = async (req, res) => {
   const { lat, lng, radius_in_km = 5 } = req.query;
 
@@ -212,7 +204,6 @@ exports.getNearbyProperties = async (req, res) => {
   }
 };
 
-// Property Files Upload Handler
 exports.uploadPropertyFiles = async (req, res) => {
   const { property_id } = req.params;
   const files = req.files;
@@ -260,7 +251,6 @@ exports.uploadPropertyFiles = async (req, res) => {
   }
 };
 
-// 5. Update Property (with listing_type, images and all details)
 exports.updateProperty = async (req, res) => {
   const propertyId = req.params.id;
   const {
@@ -365,7 +355,6 @@ exports.updateProperty = async (req, res) => {
   }
 };
 
-// 6. Delete Property
 exports.deleteProperty = async (req, res) => {
   const { id } = req.params;
 
@@ -396,7 +385,6 @@ exports.deleteProperty = async (req, res) => {
   }
 };
 
-// Property အသေးစိတ်ကြည့်သည့်အခါ Views တိုးပေးခြင်းနှင့် ပုံများပါ တစ်ပါတည်း ယူခြင်း
 exports.getPropertyById = async (req, res) => {
   try {
     const { id } = req.params;
