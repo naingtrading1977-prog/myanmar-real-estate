@@ -54,7 +54,8 @@ function App() {
             description: p.description || "",
             price: p.price || 0,
             type: p.property_type || p.type || "Apartment",
-            listing_type: p.listing_type || (p.status === "For Rent" ? "Rent" : "Sale"),
+            listing_type:
+              p.listing_type || (p.status === "For Rent" ? "Rent" : "Sale"),
             status: p.status || "Available",
             lat: parseFloat(p.latitude) || 16.8409,
             lng: parseFloat(p.longitude) || 96.1735,
@@ -144,7 +145,13 @@ function App() {
     if (typeof rawImg === "string") {
       imgPath = rawImg;
     } else if (typeof rawImg === "object") {
-      imgPath = rawImg.url || rawImg.image_path || rawImg.path || rawImg.secure_url || "";
+      // Object ထဲက url ကို အဓိကယူသုံးရန်
+      imgPath =
+        rawImg.url ||
+        rawImg.image_path ||
+        rawImg.path ||
+        rawImg.secure_url ||
+        "";
     }
 
     if (!imgPath) return "";
@@ -237,7 +244,8 @@ function App() {
                         user &&
                         (user.role === "admin" ||
                           user.isAdmin ||
-                          String(user.id || user._id) === String(item.owner_id));
+                          String(user.id || user._id) ===
+                            String(item.owner_id));
 
                       const imgUrl = getImageUrl(images[currentIndex]);
 
@@ -263,7 +271,7 @@ function App() {
                                         handlePrevImage(
                                           e,
                                           item.id,
-                                          images.length
+                                          images.length,
                                         )
                                       }
                                       className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
@@ -275,7 +283,7 @@ function App() {
                                         handleNextImage(
                                           e,
                                           item.id,
-                                          images.length
+                                          images.length,
                                         )
                                       }
                                       className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
