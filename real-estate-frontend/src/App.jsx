@@ -34,14 +34,40 @@ function App() {
       const rawData = res.data || res;
       if (Array.isArray(rawData)) {
         const formattedProperties = rawData.map((p) => {
-          console.log("Single Property Images Data:", p.images); // 🔍 ပုံဒေတာပုံစံကို စစ်ရန်
+          console.log("Single Property Images Data:", p.images);
 
           let parsedImages = [];
           if (Array.isArray(p.images)) {
-            parsedImages = p.images;
+            // Object သို့မဟုတ် String ဖြစ်နေသော ပုံဒေတာများကို URL String သီးသန့် Array အဖြစ် ပြောင်းလဲခြင်း
+            parsedImages = p.images
+              .map((img) => {
+                if (typeof img === "string") return img;
+                if (typeof img === "object" && img !== null) {
+                  return (
+                    img.url ||
+                    img.image_path ||
+                    img.path ||
+                    img.secure_url ||
+                    ""
+                  );
+                }
+                return "";
+              })
+              .filter(Boolean);
           } else if (typeof p.images === "string") {
             try {
-              parsedImages = JSON.parse(p.images);
+              const parsed = JSON.parse(p.images);
+              if (Array.isArray(parsed)) {
+                parsedImages = parsed
+                  .map((img) =>
+                    typeof img === "string"
+                      ? img
+                      : img?.url || img?.image_path || ""
+                  )
+                  .filter(Boolean);
+              } else {
+                parsedImages = [p.images];
+              }
             } catch {
               parsedImages = [p.images];
             }
@@ -145,7 +171,6 @@ function App() {
     if (typeof rawImg === "string") {
       imgPath = rawImg;
     } else if (typeof rawImg === "object") {
-      // Object ထဲက url ကို အဓိကယူသုံးရန်
       imgPath =
         rawImg.url ||
         rawImg.image_path ||
@@ -271,7 +296,7 @@ function App() {
                                         handlePrevImage(
                                           e,
                                           item.id,
-                                          images.length,
+                                          images.length
                                         )
                                       }
                                       className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
@@ -283,7 +308,7 @@ function App() {
                                         handleNextImage(
                                           e,
                                           item.id,
-                                          images.length,
+                                          images.length
                                         )
                                       }
                                       className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
@@ -336,7 +361,7 @@ function App() {
                                   onClick={(e) => handleEditClick(e, item)}
                                   className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition"
                                 >
-                                  ✏️️ Edit
+                                  ✏ Edit
                                 </button>
                                 <button
                                   onClick={(e) => handleDeleteClick(e, item.id)}
