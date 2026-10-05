@@ -166,11 +166,7 @@ const EditPropertyModal = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Price (
-                {formData.listing_type === "Rent"
-                  ? "တစ်လ (ကျပ်/သိန်း)"
-                  : "သိန်း"}
-                )
+                Price ({formData.listing_type === "Rent" ? "တစ်လ (ကျပ်/သိန်း)" : "သိန်း"})
               </label>
               <input
                 type="number"
@@ -192,6 +188,40 @@ const EditPropertyModal = ({
                 value={formData.township}
                 onChange={handleChange}
                 placeholder="ဥပမာ - တောင်ဒဂုံ"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* 📍 Latitude နှင့် Longitude ထည့်ရန် Field များ ပြန်လည်ထည့်သွင်းပေးထားပါသည် */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Latitude (မြေပုံ မျဉ်းပြိုင်)
+              </label>
+              <input
+                type="number"
+                step="any"
+                name="lat"
+                required
+                value={formData.lat}
+                onChange={handleChange}
+                placeholder="e.g. 16.8409"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Longitude (မြေပုံ မျဉ်းထောင်)
+              </label>
+              <input
+                type="number"
+                step="any"
+                name="lng"
+                required
+                value={formData.lng}
+                onChange={handleChange}
+                placeholder="e.g. 96.1735"
                 className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
@@ -225,12 +255,8 @@ const EditPropertyModal = ({
               >
                 <option value="ဂရန် (Grant)">ဂရန် (Grant)</option>
                 <option value="ပါမစ် (Permit)">ပါမစ် (Permit)</option>
-                <option value="ဘိုးဘွားပိုင်မြေ (Freehold)">
-                  ဘိုးဘွားပိုင်မြေ (Freehold)
-                </option>
-                <option value="ဂရန်အမည်ပေါက် (Grant Name Transfer)">
-                  ဂရန်အမည်ပေါက်
-                </option>
+                <option value="ဘိုးဘွားပိုင်မြေ (Freehold)">ဘိုးဘွားပိုင်မြေ (Freehold)</option>
+                <option value="ဂရန်အမည်ပေါက် (Grant Name Transfer)">ဂရန်အမည်ပေါက်</option>
                 <option value="အခြား (Other)">အခြား (Other)</option>
               </select>
             </div>
@@ -247,18 +273,10 @@ const EditPropertyModal = ({
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
             >
-              <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး">
-                BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး
-              </option>
-              <option value="BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး">
-                BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး
-              </option>
-              <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ">
-                BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ
-              </option>
-              <option value="ဆောက်လုပ်ဆဲ (Under Construction)">
-                ဆောက်လုပ်ဆဲ (Under Construction)
-              </option>
+              <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး">BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး</option>
+              <option value="BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး">BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး</option>
+              <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ">BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ</option>
+              <option value="ဆောက်လုပ်ဆဲ (Under Construction)">ဆောက်လုပ်ဆဲ (Under Construction)</option>
             </select>
           </div>
 
