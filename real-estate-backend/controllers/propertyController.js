@@ -9,8 +9,9 @@ async function validatePropertyImage(filePath) {
     const fileBuffer = fs.readFileSync(filePath);
     const base64Image = fileBuffer.toString("base64");
 
-    const chatCompletion = await groq.chat.completions.create {
-      model: "llama-3.3-70b-versatile",
+    // 👇 ဤနေရာတွင် .create({ ဟူ၍ ကွင်းစကွင်းပိတ် ( ) ကို မှန်ကန်စွာ ထည့်သွင်းပေးထားပါသည်
+    const chatCompletion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile", // လိုအပ်ပါက သင့်အကောင့်တွင် ရနိုင်သော model နာမည်သို့ ပြောင်းနိုင်ပါသည်
       messages: [
         {
           role: "user",
@@ -30,7 +31,7 @@ async function validatePropertyImage(filePath) {
       ],
       temperature: 0,
       max_tokens: 10,
-    };
+    });
 
     const resultText =
       chatCompletion.choices[0]?.message?.content?.trim().toUpperCase() || "";
