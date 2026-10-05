@@ -152,8 +152,14 @@ exports.getProperties = async (req, res) => {
     const query = `
       SELECT 
         p.*, 
-        ST_X(p.location::geometry) AS longitude,
-        ST_Y(p.location::geometry) AS latitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_X(p.location::geometry) 
+          ELSE NULL 
+        END AS longitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_Y(p.location::geometry) 
+          ELSE NULL 
+        END AS latitude,
         COALESCE(
           json_agg(
             json_build_object('id', img.id, 'url', img.image_url, 'type', img.image_type)
@@ -172,8 +178,8 @@ exports.getProperties = async (req, res) => {
   } catch (err) {
     console.error("DB Error:", err.message);
     return res
-      .status(200)
-      .json({ success: true, count: 0, data: [], db_error: err.message });
+      .status(500)
+      .json({ success: false, error: "Server Error: " + err.message });
   }
 };
 
@@ -183,8 +189,14 @@ exports.getNearbyProperties = async (req, res) => {
   try {
     const query = `
       SELECT p.*,
-        ST_X(p.location::geometry) AS longitude,
-        ST_Y(p.location::geometry) AS latitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_X(p.location::geometry) 
+          ELSE NULL 
+        END AS longitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_Y(p.location::geometry) 
+          ELSE NULL 
+        END AS latitude,
         ST_Distance(p.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters,
         COALESCE(
           json_agg(
@@ -193,7 +205,7 @@ exports.getNearbyProperties = async (req, res) => {
         ) AS images
       FROM properties p
       LEFT JOIN property_images img ON p.id = img.property_id
-      WHERE ST_DWithin(
+      WHERE p.location IS NOT NULL AND ST_DWithin(
         p.location::geography,
         ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
         $3 * 1000
@@ -205,8 +217,10 @@ exports.getNearbyProperties = async (req, res) => {
     const { rows } = await pool.query(query, [lng, lat, radius_in_km]);
     res.status(200).json({ success: true, count: rows.length, data: rows });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Server Error on Geo-search" });
+    console.error("Geo-search Error:", err.message);
+    res
+      .status(500)
+      .json({ error: "Server Error on Geo-search: " + err.message });
   }
 };
 
