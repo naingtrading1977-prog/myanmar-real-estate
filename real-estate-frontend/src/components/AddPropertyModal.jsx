@@ -8,6 +8,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
     price: "",
     type: "Apartment",
     listing_type: "Sale", // 🏷️ အရောင်း (Sale) သို့မဟုတ် အငှား (Rent)
+    township: "", // 📍 တည်နေရာ (Township) အတွက် State အသစ်ထည့်သွင်းခြင်း
     lat: "",
     lng: "",
     contact_phone: "",
@@ -47,15 +48,14 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
         formData.listing_type === "Rent" ? "For Rent" : "For Sale",
       );
 
+      // 📍 Township ထည့်သွင်းခြင်း (မဖြည့်ရပါက Default လည်း ထားပေးနိုင်သည်)
+      uploadData.append("township", formData.township || "Bahan");
+      uploadData.append("city", "Yangon");
       uploadData.append("latitude", formData.lat);
       uploadData.append("longitude", formData.lng);
       uploadData.append("contact_phone", formData.contact_phone);
       uploadData.append("ownership_document", formData.ownership_document);
       uploadData.append("building_status", formData.building_status);
-
-      // Default Fields များ
-      uploadData.append("township", "Bahan");
-      uploadData.append("city", "Yangon");
       uploadData.append("owner_id", 1); // Test User ID
 
       // ပုံများ/Document ဖိုင်များ တင်ခြင်း
@@ -142,6 +142,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
             </div>
           </div>
 
+          {/* 💰 Price နှင့် 📍 Township (တည်နေရာ) ထည့်ရန် Field များ */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -167,15 +168,15 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Contact Phone (ဆက်သွယ်ရန် ဖုန်း)
+                Township / Location (တည်နေရာ/မြို့နယ်)
               </label>
               <input
                 type="text"
-                name="contact_phone"
+                name="township"
                 required
-                value={formData.contact_phone}
+                value={formData.township}
                 onChange={handleChange}
-                placeholder="e.g. 09784970257"
+                placeholder="ဥပမာ - ဗဟန်း (ወይም တောင်ဒဂုံ)"
                 className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
@@ -212,6 +213,21 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Contact Phone (ဆက်သွယ်ရန် ဖုန်း)
+            </label>
+            <input
+              type="text"
+              name="contact_phone"
+              required
+              value={formData.contact_phone}
+              onChange={handleChange}
+              placeholder="e.g. 09784970257"
+              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+            />
           </div>
 
           <div>

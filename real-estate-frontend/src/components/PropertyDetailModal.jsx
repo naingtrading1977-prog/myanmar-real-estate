@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import API from "../api/axios"; // 👈 API (axios) ကို import လုပ်ရန် (လမ်းကြောင်းမှန်ကို စစ်ပါ)
 
 const PropertyDetailModal = ({
   isOpen,
@@ -39,7 +40,7 @@ const PropertyDetailModal = ({
 
   if (!isOpen || !property) return null;
 
-  // 🏷️ အရောင်း / အငှား ခွဲခြားသတ်မှတ်ခြင်း
+  // 🏷️️ အရောင်း / အငှား ခွဲခြားသတ်မှတ်ခြင်း
   const isRent =
     property.listing_type === "Rent" || property.status === "For Rent";
 
@@ -93,30 +94,30 @@ const PropertyDetailModal = ({
     }
 
     try {
-      const response = await fetch(
-        `http://localhost:5002/api/properties/${property.id}/rating`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rating: parseFloat(rating) }),
-        },
-      );
+      // 👇 Axios ဖြင့် ပို့ဆောင်ခြင်း (response.data ကို သုံးပါ)
+      const response = await API.post(`/properties/${property.id}/rating`, {
+        rating: parseFloat(rating),
+      });
 
-      const data = await response.json();
-      if (response.ok) {
-        alert("Rating ပေးခြင်း အောင်မြင်ပါသည်။");
+      alert("Rating ပေးခြင်း အောင်မြင်ပါသည်။");
 
-        if (typeof onPropertyUpdated === "function") {
-          onPropertyUpdated();
-        }
-
-        onClose();
-      } else {
-        alert(data.error || "Rating ပေး၍ မရပါ။");
+      if (typeof onPropertyUpdated === "function") {
+        onPropertyUpdated();
       }
+
+      onClose();
     } catch (err) {
       console.error("Failed to submit rating", err);
+      alert(err.response?.data?.error || "Rating ပေး၍ မရပါ။");
     }
+  };
+
+  // 🖼️ ပုံလိပ်စာ အမှန်ရရှိရန် Helper (Backend URL သို့မဟုတ် Supabase URL ကို အလိုအလျောက် ကိုင်တွယ်ရန်)
+  const getImageUrl = (imgObj) => {
+    const imgPath = imgObj?.url || imgObj;
+    if (!imgPath) return "";
+    if (imgPath.startsWith("http")) return imgPath; // Supabase သို့မဟုတ် External URL ဖြစ်နေလျှင်
+    return `https://myanmar-real-estate-1.onrender.com${imgPath}`; // Local uploads ဖြစ်ပါက Render Backend URL ထည့်ရန်
   };
 
   return (
@@ -128,7 +129,7 @@ const PropertyDetailModal = ({
             {property.images && property.images.length > 0 ? (
               <>
                 <img
-                  src={`http://localhost:5002${property.images[currentImageIndex]?.url || property.images[currentImageIndex]}`}
+                  src={getImageUrl(property.images[currentImageIndex])}
                   alt={property.title}
                   onClick={() => handleOpenFullscreen(currentImageIndex)}
                   className="w-full h-full object-cover hover:opacity-95 transition"
@@ -315,7 +316,7 @@ const PropertyDetailModal = ({
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              src={`http://localhost:5002${property.images[fullscreenIndex]?.url || property.images[fullscreenIndex]}`}
+              src={getImageUrl(property.images[fullscreenIndex])}
               alt={property.title}
               className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
             />

@@ -11,14 +11,22 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: true, // လာသမျှ Domain တိုင်းကို ခွင့်ပြုသည်
     credentials: true,
   }),
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+const fs = require("fs");
+const uploadDir = path.join(__dirname, "uploads");
+
+// uploads folder မရှိသေးရင် အလိုအလျောက် ဆောက်ပေးရန်
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+app.use("/uploads", express.static(uploadDir));
 
 // Database connection ကို စတင်ချိတ်ဆက်ပါ
 connectDB();

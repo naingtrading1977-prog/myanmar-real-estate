@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
 
+// API Base URL (Render Backend URL)
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://myanmar-real-estate-1.onrender.com/api";
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("users"); // 'users' သို့မဟုတ် 'properties'
   const [users, setUsers] = useState([]);
@@ -10,11 +15,18 @@ const AdminDashboard = () => {
   // 🖼️ ငွေလွှဲပြေစာ (Payment Proof) ပုံကြီးကြည့်ရန် Modalအတွက် State
   const [selectedProofImg, setSelectedProofImg] = useState(null);
 
+  // Token ယူရန်
+  const getToken = () => localStorage.getItem("token");
+
   // 👥 User စာရင်းများကို Backend ကနေ လှမ်းဆွဲယူခြင်း
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:5002/api/admin/users");
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
       const result = await response.json();
       if (result.success) {
         setUsers(result.data);
@@ -34,7 +46,11 @@ const AdminDashboard = () => {
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:5002/api/properties");
+      const response = await fetch(`${API_BASE_URL}/properties`, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
       const result = await response.json();
       if (result && result.data) {
         setProperties(result.data);
@@ -73,9 +89,12 @@ const AdminDashboard = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:5002/api/admin/users/${userId}/activate`,
+        `${API_BASE_URL}/admin/users/${userId}/activate`,
         {
           method: "POST",
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
         },
       );
       const result = await response.json();
@@ -105,10 +124,13 @@ const AdminDashboard = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:5002/api/properties/${propertyId}/status`,
+        `${API_BASE_URL}/properties/${propertyId}/status`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
           body: JSON.stringify({ status: newStatus }),
         },
       );
@@ -202,11 +224,10 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                     {users.map((u) => {
-                      // ငွေလွှဲပြေစာ URL ပုံစံ မှန်ကန်စေရန် စစ်ဆေးခြင်း
                       const proofUrl = u.payment_proof
                         ? u.payment_proof.startsWith("http")
                           ? u.payment_proof
-                          : `http://localhost:5002${u.payment_proof}`
+                          : `${API_BASE_URL.replace("/api", "")}${u.payment_proof}`
                         : null;
 
                       return (

@@ -1,25 +1,61 @@
 const { pool } = require("../config/db");
 const Groq = require("groq-sdk");
-const fs = require("fs");
+const multer = require("multer");
+const supabase = require("../config/supabaseClient"); // Supabase client ကို ချိတ်ဆက်ရန်
 
-// Groq AI Setup (.env မှ GROQ_API_KEY ကို ယူသည်)
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Helper function: Groq Vision AI ဖြင့် အိမ်ခြံမြေ ပုံစံ ဟုတ်မဟုတ် စစ်ဆေးရန်
-async function validatePropertyImage(filePath) {
+// Memory Storage ကို သုံးခြင်း (ဖိုင်များကို Server ပေါ်တွင် Local သိမ်းဆည်းခြင်းမရှိဘဲ Memory ထဲတွင် ကိုင်တွယ်ရန်)
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ပုံများကို Supabase Storage သို့ တင်ပြီး Public URL ရယူသည့် Helper Function
+async function uploadToSupabaseStorage(file) {
+  const fileExt = file.originalname.split(".").pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  const filePath = `properties/${fileName}`;
+
+  // Supabase Storage Bucket ('property-images') သို့ တင်ခြင်း
+  const { data, error } = await supabase.storage
+    .from("property-images")
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new Error("Supabase Storage Upload Error: " + error.message);
+  }
+
+  // Public URL ကို ရယူခြင်း
+  const { data: publicURLData } = supabase.storage
+    .from("property-images")
+    .getPublicUrl(filePath);
+
+  return publicURLData.publicUrl;
+}
+
+// Groq AI ဖြင့် ပုံမှန် ဟုတ်/မဟုတ် စစ်ဆေးခြင်း (Buffer မှတဆင့် စစ်ဆေးရန်)
+const sharp = require("sharp");
+
+async function validatePropertyImageBuffer(fileBuffer) {
   try {
-    const fileBuffer = fs.readFileSync(filePath);
-    const base64Image = fileBuffer.toString("base64");
+    // ၁။ AI ဆီ မပို့ခင် ပုံအရွယ်အစား ကြီးလွန်းလို့ Error မတက်အောင် Sharp ဖြင့် အရင် Compress လုပ်ပါ
+    const compressedBuffer = await sharp(fileBuffer)
+      .resize({ width: 1000, withoutEnlargement: true }) // လိုအပ်သော Width သတ်မှတ်ရန်
+      .jpeg({ quality: 80 }) // Quality 80% ဖြင့် Size ချုံ့မည်
+      .toBuffer();
+
+    const base64Image = compressedBuffer.toString("base64");
 
     const chatCompletion = await groq.chat.completions.create({
-      model: "llama-3.2-11b-vision-preview",
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Is this image related to real estate, such as a house, apartment, condo, building interior/exterior, land plot, or floor plan? Answer strictly with 'YES' or 'NO' only.",
+              text: "Is this image related to real estate? Answer strictly with 'YES' or 'NO' only.",
             },
             {
               type: "image_url",
@@ -38,12 +74,11 @@ async function validatePropertyImage(filePath) {
       chatCompletion.choices[0]?.message?.content?.trim().toUpperCase() || "";
     return resultText.includes("YES");
   } catch (err) {
-    console.error("Groq AI Validation Error:", err);
-    return true; // Error ဖြစ်လျှင် လုပ်ငန်းစဉ်မရပ်သွားစေရန် ဆက်ခွင့်ပြုသည်
+    console.error("Groq AI Validation Error (Skipped):", err.message);
+    return true; // Error ဖြစ်လျှင် ဆက်သွားရန် ခွင့်ပြုသည်
   }
 }
 
-// 1. Create Property (AI Image Validation ထည့်သွင်းထားသည်)
 exports.createProperty = async (req, res) => {
   const {
     title,
@@ -66,68 +101,83 @@ exports.createProperty = async (req, res) => {
   const owner_id = req.user ? req.user.id : null;
 
   try {
-    // 🔍 ပုံများပါလာပါက Groq Vision AI ဖြင့် အိမ်ခြံမြေ ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+    // 1. AI ဖြင့် ပုံများကို စစ်ဆေးခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         if (file.mimetype.startsWith("image/")) {
-          const isValidPropertyImage = await validatePropertyImage(file.path);
+          const isValidPropertyImage = await validatePropertyImageBuffer(
+            file.buffer,
+          );
 
           if (!isValidPropertyImage) {
-            // မမှန်ကန်သောပုံပါက temp ဖိုင်များကို ဖျက်ပြီး Error ပြန်မည်
-            for (const f of req.files) {
-              if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
-            }
             return res.status(400).json({
               error:
-                "တင်လိုက်သော ပုံများထဲတွင် အိမ်၊ ကွန်ဒို၊ မြေကွပ် စသည့် အိမ်ခြံမြေနှင့် မသက်ဆိုင်သည့် ပုံများ ပါဝင်နေပါသည်။ ကျေးဇူးပြု၍ မှန်ကန်သော ပုံများကိုသာ တင်ပေးပါ။",
+                "တင်လိုက်သော ပုံများထဲတွင် အိမ်ခြံမြေနှင့် မသက်ဆိုင်သည့် ပုံများ ပါဝင်နေပါသည်။ ကျေးဇူးပြု၍ မှန်ကန်သော ပုံများကိုသာ တင်ပေးပါ။",
             });
           }
         }
       }
     }
 
-    const query = `
+    const parsedLng = longitude ? parseFloat(longitude) : null;
+    const parsedLat = latitude ? parseFloat(latitude) : null;
+
+    // 2. Database ထဲသို့ Property အချက်အလက်များ ထည့်သွင်းခြင်း (Query & Placeholders ပြင်ဆင်ခြင်း)
+    let query = `
       INSERT INTO properties (
         title, description, property_type, listing_type, status, price, area_sqft,
         address, township, city, location, owner_id, contact_phone, ownership_document, building_status
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        ST_SetSRID(ST_MakePoint($11, $12), 4326),
-        $13, $14, $15, $16
-      )
-      RETURNING *;
     `;
 
     const values = [
-      title,
-      description,
-      property_type,
+      title || null,
+      description || null,
+      property_type || null,
       listing_type || "Sale",
       status || (listing_type === "Rent" ? "For Rent" : "For Sale"),
-      price,
-      area_sqft,
-      address,
-      township,
-      city,
-      longitude,
-      latitude,
-      owner_id,
-      contact_phone,
-      ownership_document,
-      building_status,
+      price || 0,
+      area_sqft || null,
+      address || null,
+      township || null,
+      city || "Yangon",
     ];
+
+    // Latitude နဲ့ Longitude ပါဝင်မှုအပေါ်မူတည်၍ placeholder များကို တိကျစွာ စီစဉ်ခြင်း
+    if (parsedLng !== null && parsedLat !== null) {
+      query += ` ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15, $16)`;
+      values.push(
+        parsedLng,
+        parsedLat,
+        owner_id,
+        contact_phone || null,
+        ownership_document || null,
+        building_status || null,
+      );
+    } else {
+      query += ` NULL, $11, $12, $13, $14)`;
+      values.push(
+        owner_id,
+        contact_phone || null,
+        ownership_document || null,
+        building_status || null,
+      );
+    }
+
+    query += ` RETURNING *;`;
 
     const result = await pool.query(query, values);
     const newProperty = result.rows[0];
 
-    // ပုံများသိမ်းဆည်းခြင်း
+    // 3. Supabase Storage သို့ ပုံများတင်ပြီး Public URL များကို property_images table ထဲ သိမ်းခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const imageUrl = `/uploads/${file.filename}`;
+        const publicUrl = await uploadToSupabaseStorage(file);
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
-          [newProperty.id, imageUrl, "site_photo"],
+          [newProperty.id, publicUrl, "site_photo"],
         );
       }
     }
@@ -137,23 +187,31 @@ exports.createProperty = async (req, res) => {
     newProperty.images = imagesResult.rows;
 
     res.status(201).json({
-      success: `Property created successfully!`,
+      success: true,
+      message: `Property created successfully!`,
       data: newProperty,
     });
   } catch (err) {
     console.error("Create Property Error:", err.message);
-    res.status(500).json({ error: "Server Error during property creation" });
+    res
+      .status(500)
+      .json({ error: "Server Error during property creation: " + err.message });
   }
 };
 
-// 2. Fetch All Properties with Lat/Lng, Images, Listing Type, etc.
 exports.getProperties = async (req, res) => {
   try {
     const query = `
       SELECT 
         p.*, 
-        ST_X(p.location::geometry) AS longitude,
-        ST_Y(p.location::geometry) AS latitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_X(p.location::geometry) 
+          ELSE NULL 
+        END AS longitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_Y(p.location::geometry) 
+          ELSE NULL 
+        END AS latitude,
         COALESCE(
           json_agg(
             json_build_object('id', img.id, 'url', img.image_url, 'type', img.image_type)
@@ -172,20 +230,25 @@ exports.getProperties = async (req, res) => {
   } catch (err) {
     console.error("DB Error:", err.message);
     return res
-      .status(200)
-      .json({ success: true, count: 0, data: [], db_error: err.message });
+      .status(500)
+      .json({ success: false, error: "Server Error: " + err.message });
   }
 };
 
-// 3. Search Properties Nearby GPS Location (PostGIS Radius Search)
 exports.getNearbyProperties = async (req, res) => {
   const { lat, lng, radius_in_km = 5 } = req.query;
 
   try {
     const query = `
       SELECT p.*,
-        ST_X(p.location::geometry) AS longitude,
-        ST_Y(p.location::geometry) AS latitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_X(p.location::geometry) 
+          ELSE NULL 
+        END AS longitude,
+        CASE 
+          WHEN p.location IS NOT NULL THEN ST_Y(p.location::geometry) 
+          ELSE NULL 
+        END AS latitude,
         ST_Distance(p.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters,
         COALESCE(
           json_agg(
@@ -194,7 +257,7 @@ exports.getNearbyProperties = async (req, res) => {
         ) AS images
       FROM properties p
       LEFT JOIN property_images img ON p.id = img.property_id
-      WHERE ST_DWithin(
+      WHERE p.location IS NOT NULL AND ST_DWithin(
         p.location::geography,
         ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
         $3 * 1000
@@ -206,12 +269,13 @@ exports.getNearbyProperties = async (req, res) => {
     const { rows } = await pool.query(query, [lng, lat, radius_in_km]);
     res.status(200).json({ success: true, count: rows.length, data: rows });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Server Error on Geo-search" });
+    console.error("Geo-search Error:", err.message);
+    res
+      .status(500)
+      .json({ error: "Server Error on Geo-search: " + err.message });
   }
 };
 
-// Property Files Upload Handler
 exports.uploadPropertyFiles = async (req, res) => {
   const { property_id } = req.params;
   const files = req.files;
@@ -224,31 +288,31 @@ exports.uploadPropertyFiles = async (req, res) => {
     const uploadedResults = [];
 
     for (const file of files) {
-      const fileUrl = `/uploads/${file.filename}`;
+      const publicUrl = await uploadToSupabaseStorage(file);
 
       if (file.mimetype === "application/pdf") {
         await pool.query(
           `INSERT INTO property_documents (property_id, document_name, document_url, is_private)
            VALUES ($1, $2, $3, $4)`,
-          [property_id, file.originalname, fileUrl, true],
+          [property_id, file.originalname, publicUrl, true],
         );
       } else {
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type)
            VALUES ($1, $2, $3)`,
-          [property_id, fileUrl, "site_photo"],
+          [property_id, publicUrl, "site_photo"],
         );
       }
 
       uploadedResults.push({
         filename: file.originalname,
-        url: fileUrl,
+        url: publicUrl,
       });
     }
 
     res.status(200).json({
       success: true,
-      message: "Files uploaded & saved to Database successfully!",
+      message: "Files uploaded & saved to Supabase Storage successfully!",
       data: uploadedResults,
     });
   } catch (err) {
@@ -259,14 +323,13 @@ exports.uploadPropertyFiles = async (req, res) => {
   }
 };
 
-// 5. Update Property (with listing_type, images and all details)
 exports.updateProperty = async (req, res) => {
   const propertyId = req.params.id;
   const {
     title,
     description,
     property_type,
-    listing_type, // 🏷️ အရောင်း/အငှား အသစ်
+    listing_type,
     status,
     price,
     area_sqft,
@@ -296,8 +359,7 @@ exports.updateProperty = async (req, res) => {
         city = COALESCE($10, city),
         contact_phone = COALESCE($11, contact_phone),
         ownership_document = COALESCE($12, ownership_document),
-        building_status = COALESCE($13, building_status),
-        updated_at = NOW()
+        building_status = COALESCE($13, building_status)
     `;
 
     const values = [
@@ -318,9 +380,14 @@ exports.updateProperty = async (req, res) => {
 
     let paramIndex = 14;
 
-    if (latitude && longitude) {
+    if (
+      latitude !== undefined &&
+      latitude !== "" &&
+      longitude !== undefined &&
+      longitude !== ""
+    ) {
       query += `, location = ST_SetSRID(ST_MakePoint($${paramIndex}, $${paramIndex + 1}), 4326)`;
-      values.push(longitude, latitude);
+      values.push(parseFloat(longitude), parseFloat(latitude));
       paramIndex += 2;
     }
 
@@ -335,22 +402,21 @@ exports.updateProperty = async (req, res) => {
 
     const updatedProperty = result.rows[0];
 
-    // ပုံအသစ်များ (`req.files`) တင်ထားပါက ပုံဟောင်းများဖျက်ပြီး အသစ်ဖြင့် အစားထိုးခြင်း
+    // ပုံသစ်များ ပါလာမှသာ ပုံဟောင်းများကို ဖျက်ပြီး Supabase သို့ အသစ်တင်မည်
     if (req.files && req.files.length > 0) {
       await pool.query(`DELETE FROM property_images WHERE property_id = $1`, [
         propertyId,
       ]);
 
       for (const file of req.files) {
-        const imageUrl = `/uploads/${file.filename}`;
+        const publicUrl = await uploadToSupabaseStorage(file);
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
-          [propertyId, imageUrl, "site_photo"],
+          [propertyId, publicUrl, "site_photo"],
         );
       }
     }
 
-    // ပုံအပါအဝင် အချက်အလက်များကို ပြန်လည်ဆွဲထုတ်ရန်
     const imagesQuery = `SELECT id, image_url AS url, image_type FROM property_images WHERE property_id = $1;`;
     const imagesResult = await pool.query(imagesQuery, [propertyId]);
     updatedProperty.images = imagesResult.rows;
@@ -362,11 +428,12 @@ exports.updateProperty = async (req, res) => {
     });
   } catch (err) {
     console.error("Update Property Error:", err.message);
-    res.status(500).json({ error: "Server Error during property update" });
+    res
+      .status(500)
+      .json({ error: "Server Error during property update: " + err.message });
   }
 };
 
-// 6. Delete Property
 exports.deleteProperty = async (req, res) => {
   const { id } = req.params;
 
@@ -397,7 +464,6 @@ exports.deleteProperty = async (req, res) => {
   }
 };
 
-// Property အသေးစိတ်ကြည့်သည့်အခါ Views တိုးပေးခြင်းနှင့် ပုံများပါ တစ်ပါတည်း ယူခြင်း
 exports.getPropertyById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -460,10 +526,17 @@ exports.rateProperty = async (req, res) => {
     const newTotal = currentTotal + 1;
     const newAvg = (currentAvg * currentTotal + parsedRating) / newTotal;
 
-    const updateQuery = await pool.query(
-      "UPDATE properties SET average_rating = $1, total_ratings = $2 WHERE id = $3 RETURNING *",
-      [newAvg.toFixed(2), newTotal, id],
-    );
+    const query = `
+      UPDATE properties 
+      SET average_rating = $1, total_ratings = $2 
+      WHERE id = $3 
+      RETURNING *;
+    `;
+    const updateQuery = await pool.query(query, [
+      newAvg.toFixed(2),
+      newTotal,
+      id,
+    ]);
 
     res.json({
       message: "Rating submitted successfully",

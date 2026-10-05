@@ -29,28 +29,71 @@ function App() {
   const fetchPropertiesData = async () => {
     try {
       const res = await getProperties();
-      if (res && res.data) {
-        const formattedProperties = res.data.map((p) => ({
-          ...p,
-          id: p.id,
-          title: p.title,
-          description: p.description,
-          price: p.price,
-          type: p.property_type || p.type || "Apartment",
-          listing_type:
-            p.listing_type || (p.status === "For Rent" ? "Rent" : "Sale"),
-          status: p.status || "Available",
-          lat: parseFloat(p.latitude) || 16.8409,
-          lng: parseFloat(p.longitude) || 96.1735,
-          images: p.images || [],
-          owner_id: p.owner_id,
-          contact_phone: p.contact_phone || "",
-          views: p.views || 0,
-          average_rating: p.average_rating || 0,
-        }));
+      console.log("API Response Properties:", res);
+
+      const rawData = res.data || res;
+      if (Array.isArray(rawData)) {
+        const formattedProperties = rawData.map((p) => {
+          console.log("Single Property Images Data:", p.images);
+
+          let parsedImages = [];
+          if (Array.isArray(p.images)) {
+            // Object သို့မဟုတ် String ဖြစ်နေသော ပုံဒေတာများကို URL String သီးသန့် Array အဖြစ်သို့ အသေအချာ ထုတ်ယူခြင်း
+            parsedImages = p.images
+              .map((img) => {
+                if (typeof img === "string") return img;
+                if (typeof img === "object" && img !== null) {
+                  return (
+                    img.url ||
+                    img.image_path ||
+                    img.path ||
+                    img.secure_url ||
+                    img.imageUrl ||
+                    ""
+                  );
+                }
+                return "";
+              })
+              .filter(Boolean);
+          } else if (typeof p.images === "string") {
+            try {
+              const parsed = JSON.parse(p.images);
+              if (Array.isArray(parsed)) {
+                parsedImages = parsed
+                  .map((img) =>
+                    typeof img === "string"
+                      ? img
+                      : img?.url || img?.image_path || img?.path || "",
+                  )
+                  .filter(Boolean);
+              } else {
+                parsedImages = [p.images];
+              }
+            } catch {
+              parsedImages = [p.images];
+            }
+          }
+
+          return {
+            ...p,
+            id: p.id || p._id,
+            title: p.title || "Untitled Property",
+            description: p.description || "",
+            price: p.price || 0,
+            type: p.property_type || p.type || "Apartment",
+            listing_type:
+              p.listing_type || (p.status === "For Rent" ? "Rent" : "Sale"),
+            status: p.status || "Available",
+            lat: parseFloat(p.latitude) || 16.8409,
+            lng: parseFloat(p.longitude) || 96.1735,
+            images: parsedImages,
+            owner_id: p.owner_id || p.user_id,
+            contact_phone: p.contact_phone || "",
+            views: p.views || 0,
+            average_rating: p.average_rating || 0,
+          };
+        });
         setProperties(formattedProperties);
-      } else if (Array.isArray(res)) {
-        setProperties(res);
       }
     } catch (err) {
       console.error("Failed to load properties", err);
@@ -85,20 +128,18 @@ function App() {
     setIsDetailModalOpen(true);
   };
 
-  // 🛠️ Edit ပြုလုပ်ရန် Modal ဖွင့်ခြင်း
   const handleEditClick = (e, item) => {
-    e.stopPropagation(); // Card Click မဖြစ်သွားစေရန်
+    e.stopPropagation();
     setSelectedProperty(item);
     setIsEditModalOpen(true);
   };
 
-  // 🛠️ Delete ပြုလုပ်ခြင်း
   const handleDeleteClick = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("ဒီကြော်ငြာကို ဖျက်မှာ သေချာပါသလား?")) {
       try {
         await deleteProperty(id);
-        fetchPropertiesData(); // စာရင်းကို အသစ်ပြန်ဆွဲမည်
+        fetchPropertiesData();
       } catch (err) {
         console.error("Failed to delete property", err);
         alert("ဖျက်ရာတွင် အမှားအယွင်း ရှိနေပါသည်။");
@@ -124,7 +165,32 @@ function App() {
     });
   };
 
-  const isAdmin = isAuthenticated && user && user.role === "admin";
+  const getImageUrl = (rawImg) => {
+    if (!rawImg) return "";
+    let imgPath = "";
+
+    if (typeof rawImg === "string") {
+      imgPath = rawImg;
+    } else if (typeof rawImg === "object") {
+      imgPath =
+        rawImg.url ||
+        rawImg.image_path ||
+        rawImg.path ||
+        rawImg.secure_url ||
+        "";
+    }
+
+    if (!imgPath) return "";
+    if (imgPath.startsWith("http://") || imgPath.startsWith("https://")) {
+      return imgPath;
+    }
+
+    const formattedPath = imgPath.startsWith("/") ? imgPath : `/${imgPath}`;
+    return `https://myanmar-real-estate-1.onrender.com${formattedPath}`;
+  };
+
+  const isAdmin =
+    isAuthenticated && user && (user.role === "admin" || user.isAdmin);
 
   const activeProperties = properties.filter((item) => {
     const status = (item.status || "").trim();
@@ -148,7 +214,6 @@ function App() {
           onOpenPostModal={() => setIsAddPropertyOpen(true)}
         />
 
-        {/* 📢 Announcement / Marquee Banner */}
         <div className="bg-emerald-600 text-white py-2 px-4 shadow-inner flex items-center">
           <span className="bg-emerald-700 text-xs font-bold px-2 py-1 rounded mr-3 uppercase tracking-wider">
             ကြော်ငြာ
@@ -165,7 +230,6 @@ function App() {
             <AdminDashboard />
           ) : (
             <>
-              {/* 🗺️ Location Map View */}
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">
                   Location Map View
@@ -178,7 +242,6 @@ function App() {
                 </div>
               </div>
 
-              {/* 🏠 Available Listings */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center mb-2">
                   <h2 className="text-xl font-bold text-slate-800">
@@ -202,24 +265,15 @@ function App() {
                       const images = item.images || [];
                       const currentIndex = cardImageIndices[item.id] || 0;
 
-                      // 🛠️ လက်ရှိ Login ဝင်ထားသူသည် ဤပိုင်ဆိုင်မှုကို တင်ထားသူ (သို့မဟုတ် Admin) ဟုတ်မဟုတ် စစ်ဆေးခြင်း
                       const isOwnerOrAdmin =
                         isAuthenticated &&
                         user &&
-                        (user.role === "admin" || user.id === item.owner_id);
+                        (user.role === "admin" ||
+                          user.isAdmin ||
+                          String(user.id || user._id) ===
+                            String(item.owner_id));
 
-                      const rawImg = images[currentIndex];
-                      const imgUrl = rawImg
-                        ? typeof rawImg === "string"
-                          ? rawImg.startsWith("http")
-                            ? rawImg
-                            : `http://localhost:5002${rawImg}`
-                          : rawImg.url
-                            ? rawImg.url.startsWith("http")
-                              ? rawImg.url
-                              : `http://localhost:5002${rawImg.url}`
-                            : ""
-                        : "";
+                      const imgUrl = getImageUrl(images[currentIndex]);
 
                       return (
                         <div
@@ -228,7 +282,7 @@ function App() {
                           className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col justify-between"
                         >
                           <div className="h-48 bg-slate-900 relative overflow-hidden">
-                            {images.length > 0 ? (
+                            {images.length > 0 && images[currentIndex] ? (
                               <>
                                 <img
                                   src={imgUrl}
@@ -302,20 +356,19 @@ function App() {
                               </div>
                             </div>
 
-                            {/* 🛠️ ပိုင်ရှင် (သို့) Admin ဖြစ်မှသာ Edit / Delete ခလုတ်များ ပေါ်လာမည် */}
                             {isOwnerOrAdmin && (
                               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                                 <button
                                   onClick={(e) => handleEditClick(e, item)}
                                   className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition"
                                 >
-                                  ✏️ Edit
+                                  ✏ Edit
                                 </button>
                                 <button
                                   onClick={(e) => handleDeleteClick(e, item.id)}
                                   className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg transition"
                                 >
-                                  🗑️ Delete
+                                  🗑️️ Delete
                                 </button>
                               </div>
                             )}
@@ -340,7 +393,6 @@ function App() {
         onPropertyAdded={fetchPropertiesData}
       />
 
-      {/* 🛠️ Edit Property Modal ချိတ်ဆက်ပေးခြင်း */}
       <EditPropertyModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}

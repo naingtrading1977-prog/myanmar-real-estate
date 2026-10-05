@@ -197,6 +197,40 @@ const EditPropertyModal = ({
             </div>
           </div>
 
+          {/* 📍 Latitude နှင့် Longitude ထည့်ရန် Field များ ပြန်လည်ထည့်သွင်းပေးထားပါသည် */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Latitude (မြေပုံ မျဉ်းပြိုင်)
+              </label>
+              <input
+                type="number"
+                step="any"
+                name="lat"
+                required
+                value={formData.lat}
+                onChange={handleChange}
+                placeholder="e.g. 16.8409"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Longitude (မြေပုံ မျဉ်းထောင်)
+              </label>
+              <input
+                type="number"
+                step="any"
+                name="lng"
+                required
+                value={formData.lng}
+                onChange={handleChange}
+                placeholder="e.g. 96.1735"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
           {/* 📞 Contact Phone & 📄 Ownership Document */}
           <div className="grid grid-cols-2 gap-4">
             <div>

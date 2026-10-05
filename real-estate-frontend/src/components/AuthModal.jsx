@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import SignupForm from "./SignupForm";
+import API from "../api/axios"; // 👈 API (axios) ကို import လုပ်ရန် (လမ်းကြောင်းမှန်ကို စစ်ပါ)
 
 export default function AuthModal({ isOpen, onClose }) {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -19,28 +20,23 @@ export default function AuthModal({ isOpen, onClose }) {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5002/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginData),
-      });
-      const data = await response.json();
+      // 🛠️ Fix: fetch အစား API (axios) ကိုသုံး၍ Render Backend သို့ ချိတ်ဆက်ခြင်း
+      const response = await API.post("/auth/login", loginData);
+      const data = response.data;
 
-      if (response.ok) {
-        // 🛠️ Fix: Token နှင့်အတူ User အချက်အလက်ကိုပါ LocalStorage သို့ သိမ်းဆည်းခြင်း
-        localStorage.setItem("token", data.token);
-        if (data.user) {
-          localStorage.setItem("user", JSON.stringify(data.user));
-        }
-        window.location.reload();
-      } else {
-        setError(
-          data.error || data.message || "အကောင့်ဝင်ရောက်ခြင်း မအောင်မြင်ပါ။",
-        );
+      // 🛠️ Fix: Token နှင့်အတူ User အချက်အလက်ကိုပါ LocalStorage သို့ သိမ်းဆည်းခြင်း
+      localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
       }
+      window.location.reload();
     } catch (err) {
       console.error("Login error:", err);
-      setError("ဆာဗာသို့ ချိတ်ဆက်၍ မရပါ။");
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "အကောင့်ဝင်ရောက်ခြင်း မအောင်မြင်ပါ။ ဆာဗာသို့ ချိတ်ဆက်၍ မရပါ။",
+      );
     } finally {
       setLoading(false);
     }

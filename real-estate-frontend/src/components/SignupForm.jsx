@@ -1,5 +1,9 @@
 import React, { useState } from "react";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://myanmar-real-estate-1.onrender.com/api";
+
 export default function SignupForm({ onSignupSuccess, switchToLogin }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -7,7 +11,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     password: "",
     phone: "",
     role: "client",
-    plan: "trial", // သို့မဟုတ် subscription_plan
+    plan: "trial",
   });
 
   const [paymentProof, setPaymentProof] = useState(null);
@@ -28,24 +32,22 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     setError("");
 
     try {
-      // တကယ်လို့ Paid Plan ရွေးထားပြီး ငွေလွှဲပြေစာ တင်ရမယ်ဆိုရင် FormData (Multipart) သုံးရပါမယ်
-      const dataToSend = new FormData();
-      dataToSend.append("name", formData.name);
-      dataToSend.append("email", formData.email);
-      dataToSend.append("password", formData.password);
-      dataToSend.append("phone", formData.phone);
-      dataToSend.append("role", formData.role);
-      dataToSend.append("plan", formData.plan);
-
-      if (formData.plan === "paid" && paymentProof) {
-        dataToSend.append("payment_proof", paymentProof);
-      }
-
-      const response = await fetch("http://localhost:5002/api/auth/signup", {
+      // 🛠️ FormData အစား JSON ပုံစံဖြင့် ပို့ပါ
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
-        // Content-Type ထည့်စရာမလိုပါ (FormData သုံးလျှင် Browser က multipart/form-data ကို အလိုအလျောက် တွဲပေးပါတယ်)
-        body: dataToSend,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          role: formData.role,
+          plan: formData.plan,
+        }),
       });
+
       const data = await response.json();
 
       if (response.ok) {

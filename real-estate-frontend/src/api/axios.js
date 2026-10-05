@@ -1,7 +1,9 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5002/api", // Proxy မှတစ်ဆင့် Backend Port 5000 သို့ Auto ရောက်သွားပါမည်
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    "https://myanmar-real-estate-1.onrender.com/api",
 });
 
 API.interceptors.request.use((config) => {
