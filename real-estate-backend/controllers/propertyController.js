@@ -112,7 +112,7 @@ exports.createProperty = async (req, res) => {
     const parsedLng = longitude ? parseFloat(longitude) : null;
     const parsedLat = latitude ? parseFloat(latitude) : null;
 
-    // 2. Database ထဲသို့ Property အချက်အလက်များ ထည့်သွင်းခြင်း
+    // 2. Database ထဲသို့ Property အချက်အလက်များ ထည့်သွင်းခြင်း (Query & Placeholders ပြင်ဆင်ခြင်း)
     let query = `
       INSERT INTO properties (
         title, description, property_type, listing_type, status, price, area_sqft,
@@ -135,24 +135,13 @@ exports.createProperty = async (req, res) => {
       city || "Yangon",
     ];
 
+    // Latitude နဲ့ Longitude ပါဝင်မှုအပေါ်မူတည်၍ placeholder များကို တိကျစွာ စီစဉ်ခြင်း
     if (parsedLng !== null && parsedLat !== null) {
-      query += `ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15, $16)`;
-      values.push(
-        parsedLng,
-        parsedLat,
-        owner_id,
-        contact_phone || null,
-        ownership_document || null,
-        building_status || null,
-      );
+      query += ` ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15, $16)`;
+      values.push(parsedLng, parsedLat, owner_id, contact_phone || null, ownership_document || null, building_status || null);
     } else {
-      query += `NULL, $11, $12, $13, $14)`;
-      values.push(
-        owner_id,
-        contact_phone || null,
-        ownership_document || null,
-        building_status || null,
-      );
+      query += ` NULL, $11, $12, $13, $14)`;
+      values.push(owner_id, contact_phone || null, ownership_document || null, building_status || null);
     }
 
     query += ` RETURNING *;`;
