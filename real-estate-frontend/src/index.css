@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* Firefox ESR အတွက် ပိုမိုကောင်းမွန်သော Pyidaungsu Font ချိတ်ဆက်ခြင်း */
 @font-face {
   font-family: "Pyidaungsu";
@@ -19,6 +21,7 @@ select {
   text-rendering: optimizeLegibility;
   font-synthesis: none; /* Firefox တွင် ဖောင့်ကို အတုလုပ်ထူခြင်းမှ ကာကွယ်သည် */
 }
+
 /* Leaflet Custom Marker Fix */
 .leaflet-div-icon {
   background: transparent !important;
