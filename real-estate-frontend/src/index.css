@@ -19,3 +19,13 @@ select {
   text-rendering: optimizeLegibility;
   font-synthesis: none; /* Firefox တွင် ဖောင့်ကို အတုလုပ်ထူခြင်းမှ ကာကွယ်သည် */
 }
+/* Leaflet Custom Marker Fix */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-property-marker {
+  background: transparent !important;
+  border: none !important;
+}
