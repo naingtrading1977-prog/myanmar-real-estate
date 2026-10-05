@@ -38,7 +38,7 @@ async function validatePropertyImage(filePath) {
     return resultText.includes("YES");
   } catch (err) {
     console.error("Groq AI Validation Error:", err);
-    return true; 
+    return true;
   }
 }
 
@@ -293,8 +293,7 @@ exports.updateProperty = async (req, res) => {
         city = COALESCE($10, city),
         contact_phone = COALESCE($11, contact_phone),
         ownership_document = COALESCE($12, ownership_document),
-        building_status = COALESCE($13, building_status),
-        updated_at = NOW()
+        building_status = COALESCE($13, building_status)
     `;
 
     const values = [
@@ -315,7 +314,13 @@ exports.updateProperty = async (req, res) => {
 
     let paramIndex = 14;
 
-    if (latitude && longitude) {
+    // Latitude နဲ့ Longitude ပါလာမှသာ location ကို update လုပ်မည်
+    if (
+      latitude !== undefined &&
+      latitude !== "" &&
+      longitude !== undefined &&
+      longitude !== ""
+    ) {
       query += `, location = ST_SetSRID(ST_MakePoint($${paramIndex}, $${paramIndex + 1}), 4326)`;
       values.push(parseFloat(longitude), parseFloat(latitude));
       paramIndex += 2;
@@ -332,6 +337,7 @@ exports.updateProperty = async (req, res) => {
 
     const updatedProperty = result.rows[0];
 
+    // ပုံသစ်များ ပါလာမှသာ ပုံဟောင်းများကို ဖျက်ပြီး အသစ်ထည့်မည်
     if (req.files && req.files.length > 0) {
       await pool.query(`DELETE FROM property_images WHERE property_id = $1`, [
         propertyId,
@@ -357,7 +363,9 @@ exports.updateProperty = async (req, res) => {
     });
   } catch (err) {
     console.error("Update Property Error:", err.message);
-    res.status(500).json({ error: "Server Error during property update" });
+    res
+      .status(500)
+      .json({ error: "Server Error during property update: " + err.message });
   }
 };
 
