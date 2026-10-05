@@ -1,9 +1,6 @@
 const { pool } = require("../config/db");
-const Groq = require("groq-sdk");
 const multer = require("multer");
 const supabase = require("../config/supabaseClient"); // Supabase client ကို ချိတ်ဆက်ရန်
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Memory Storage ကို သုံးခြင်း (ဖိုင်များကို Server ပေါ်တွင် Local သိမ်းဆည်းခြင်းမရှိဘဲ Memory ထဲတွင် ကိုင်တွယ်ရန်)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -34,51 +31,6 @@ async function uploadToSupabaseStorage(file) {
   return publicURLData.publicUrl;
 }
 
-// Groq AI ဖြင့် ပုံမှန် ဟုတ်/မဟုတ် စစ်ဆေးခြင်း (Buffer မှတဆင့် စစ်ဆေးရန်)
-const sharp = require("sharp");
-
-async function validatePropertyImageBuffer(fileBuffer) {
-  try {
-    // ၁။ AI ဆီ မပို့ခင် ပုံအရွယ်အစား ကြီးလွန်းလို့ Error မတက်အောင် Sharp ဖြင့် အရင် Compress လုပ်ပါ
-    const compressedBuffer = await sharp(fileBuffer)
-      .resize({ width: 1000, withoutEnlargement: true }) // လိုအပ်သော Width သတ်မှတ်ရန်
-      .jpeg({ quality: 80 }) // Quality 80% ဖြင့် Size ချုံ့မည်
-      .toBuffer();
-
-    const base64Image = compressedBuffer.toString("base64");
-
-    const chatCompletion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Is this image related to real estate? Answer strictly with 'YES' or 'NO' only.",
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${base64Image}`,
-              },
-            },
-          ],
-        },
-      ],
-      temperature: 0,
-      max_tokens: 10,
-    });
-
-    const resultText =
-      chatCompletion.choices[0]?.message?.content?.trim().toUpperCase() || "";
-    return resultText.includes("YES");
-  } catch (err) {
-    console.error("Groq AI Validation Error (Skipped):", err.message);
-    return true; // Error ဖြစ်လျှင် ဆက်သွားရန် ခွင့်ပြုသည်
-  }
-}
-
 exports.createProperty = async (req, res) => {
   const {
     title,
@@ -101,28 +53,10 @@ exports.createProperty = async (req, res) => {
   const owner_id = req.user ? req.user.id : null;
 
   try {
-    // 1. AI ဖြင့် ပုံများကို စစ်ဆေးခြင်း
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        if (file.mimetype.startsWith("image/")) {
-          const isValidPropertyImage = await validatePropertyImageBuffer(
-            file.buffer,
-          );
-
-          if (!isValidPropertyImage) {
-            return res.status(400).json({
-              error:
-                "တင်လိုက်သော ပုံများထဲတွင် အိမ်ခြံမြေနှင့် မသက်ဆိုင်သည့် ပုံများ ပါဝင်နေပါသည်။ ကျေးဇူးပြု၍ မှန်ကန်သော ပုံများကိုသာ တင်ပေးပါ။",
-            });
-          }
-        }
-      }
-    }
-
     const parsedLng = longitude ? parseFloat(longitude) : null;
     const parsedLat = latitude ? parseFloat(latitude) : null;
 
-    // 2. Database ထဲသို့ Property အချက်အလက်များ ထည့်သွင်းခြင်း (Query & Placeholders ပြင်ဆင်ခြင်း)
+    // 1. Database ထဲသို့ Property အချက်အလက်များ ထည့်သွင်းခြင်း (Query & Placeholders ပြင်ဆင်ခြင်း)
     let query = `
       INSERT INTO properties (
         title, description, property_type, listing_type, status, price, area_sqft,
@@ -171,7 +105,7 @@ exports.createProperty = async (req, res) => {
     const result = await pool.query(query, values);
     const newProperty = result.rows[0];
 
-    // 3. Supabase Storage သို့ ပုံများတင်ပြီး Public URL များကို property_images table ထဲ သိမ်းခြင်း
+    // 2. Supabase Storage သို့ ပုံများတင်ပြီး Public URL များကို property_images table ထဲ သိမ်းခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const publicUrl = await uploadToSupabaseStorage(file);
