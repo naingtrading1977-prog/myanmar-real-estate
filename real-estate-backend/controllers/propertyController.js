@@ -1,35 +1,27 @@
 const { pool } = require("../config/db");
 const multer = require("multer");
-const supabase = require("../config/supabaseClient"); // Supabase client ကို ချိတ်ဆက်ရန်
+const path = require("path");
+const fs = require("fs");
 
-// Memory Storage ကို သုံးခြင်း (ဖိုင်များကို Server ပေါ်တွင် Local သိမ်းဆည်းခြင်းမရှိဘဲ Memory ထဲတွင် ကိုင်တွယ်ရန်)
-const upload = multer({ storage: multer.memoryStorage() });
-
-// ပုံများကို Supabase Storage သို့ တင်ပြီး Public URL ရယူသည့် Helper Function
-async function uploadToSupabaseStorage(file) {
-  const fileExt = file.originalname.split(".").pop();
-  const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-  const filePath = `properties/${fileName}`;
-
-  // Supabase Storage Bucket ('property-images') သို့ တင်ခြင်း
-  const { data, error } = await supabase.storage
-    .from("property-images")
-    .upload(filePath, file.buffer, {
-      contentType: file.mimetype,
-      upsert: false,
-    });
-
-  if (error) {
-    throw new Error("Supabase Storage Upload Error: " + error.message);
-  }
-
-  // Public URL ကို ရယူခြင်း
-  const { data: publicURLData } = supabase.storage
-    .from("property-images")
-    .getPublicUrl(filePath);
-
-  return publicURLData.publicUrl;
+// uploads folder ရှိမရှိ စစ်ဆေးပြီး မရှိရင် အလိုအလျောက် ဆောက်ပေးခြင်း
+const uploadDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+// Multer Disk Storage ကို အသုံးပြု၍ Server ပေါ်တွင် ဖိုင်များကို Local သိမ်းဆည်းခြင်း
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const fileExt = file.path ? path.extname(file.originalname) : file.originalname.split(".").pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.originalname.split(".").pop()}`;
+    cb(null, fileName);
+  },
+});
+
+const upload = multer({ storage: storage });
 
 exports.createProperty = async (req, res) => {
   const {
@@ -56,7 +48,6 @@ exports.createProperty = async (req, res) => {
     const parsedLng = longitude ? parseFloat(longitude) : null;
     const parsedLat = latitude ? parseFloat(latitude) : null;
 
-    // 1. Database ထဲသို့ Property အချက်အလက်များ ထည့်သွင်းခြင်း (Query & Placeholders ပြင်ဆင်ခြင်း)
     let query = `
       INSERT INTO properties (
         title, description, property_type, listing_type, status, price, area_sqft,
@@ -79,7 +70,6 @@ exports.createProperty = async (req, res) => {
       city || "Yangon",
     ];
 
-    // Latitude နဲ့ Longitude ပါဝင်မှုအပေါ်မူတည်၍ placeholder များကို တိကျစွာ စီစဉ်ခြင်း
     if (parsedLng !== null && parsedLat !== null) {
       query += ` ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15, $16)`;
       values.push(
@@ -105,13 +95,13 @@ exports.createProperty = async (req, res) => {
     const result = await pool.query(query, values);
     const newProperty = result.rows[0];
 
-    // 2. Supabase Storage သို့ ပုံများတင်ပြီး Public URL များကို property_images table ထဲ သိမ်းခြင်း
+    // Local uploads folder ထဲသို့ ရောက်သွားသော ဖိုင်လမ်းကြောင်းများကို database ထဲ သိမ်းဆည်းခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const publicUrl = await uploadToSupabaseStorage(file);
+        const fileUrl = `/uploads/${file.filename}`;
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
-          [newProperty.id, publicUrl, "site_photo"],
+          [newProperty.id, fileUrl, "site_photo"],
         );
       }
     }
@@ -222,31 +212,31 @@ exports.uploadPropertyFiles = async (req, res) => {
     const uploadedResults = [];
 
     for (const file of files) {
-      const publicUrl = await uploadToSupabaseStorage(file);
+      const fileUrl = `/uploads/${file.filename}`;
 
       if (file.mimetype === "application/pdf") {
         await pool.query(
           `INSERT INTO property_documents (property_id, document_name, document_url, is_private)
            VALUES ($1, $2, $3, $4)`,
-          [property_id, file.originalname, publicUrl, true],
+          [property_id, file.originalname, fileUrl, true],
         );
       } else {
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type)
            VALUES ($1, $2, $3)`,
-          [property_id, publicUrl, "site_photo"],
+          [property_id, fileUrl, "site_photo"],
         );
       }
 
       uploadedResults.push({
         filename: file.originalname,
-        url: publicUrl,
+        url: fileUrl,
       });
     }
 
     res.status(200).json({
       success: true,
-      message: "Files uploaded & saved to Supabase Storage successfully!",
+      message: "Files uploaded & saved to local storage successfully!",
       data: uploadedResults,
     });
   } catch (err) {
@@ -336,17 +326,16 @@ exports.updateProperty = async (req, res) => {
 
     const updatedProperty = result.rows[0];
 
-    // ပုံသစ်များ ပါလာမှသာ ပုံဟောင်းများကို ဖျက်ပြီး Supabase သို့ အသစ်တင်မည်
     if (req.files && req.files.length > 0) {
       await pool.query(`DELETE FROM property_images WHERE property_id = $1`, [
         propertyId,
       ]);
 
       for (const file of req.files) {
-        const publicUrl = await uploadToSupabaseStorage(file);
+        const fileUrl = `/uploads/${file.filename}`;
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
-          [propertyId, publicUrl, "site_photo"],
+          [propertyId, fileUrl, "site_photo"],
         );
       }
     }
