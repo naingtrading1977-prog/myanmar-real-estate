@@ -10,14 +10,14 @@ async function validatePropertyImage(filePath) {
     const base64Image = fileBuffer.toString("base64");
 
     const chatCompletion = await groq.chat.completions.create({
-      model: "llama3-70b-8192", // Model နာမည်ကို ပြောင်းပေးလိုက်ပါ
+      model: "llama-3.1-8b-instant", // လက်ရှိသုံးလို့ရသော Groq model သို့ ပြောင်းထားပါသည်
       messages: [
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Is this image related to real estate, such as a house, apartment, condo, building interior/exterior, land plot, or floor plan? Answer strictly with 'YES' or 'NO' only.",
+              text: "Is this image related to real estate? Answer strictly with 'YES' or 'NO' only.",
             },
             {
               type: "image_url",
@@ -36,8 +36,8 @@ async function validatePropertyImage(filePath) {
       chatCompletion.choices[0]?.message?.content?.trim().toUpperCase() || "";
     return resultText.includes("YES");
   } catch (err) {
-    console.error("Groq AI Validation Error:", err.message);
-    return true; // Error ဖြစ်ရင် တားမနေဘဲ ကျော်သွားရန်
+    console.error("Groq AI Validation Error (Skipped):", err.message);
+    return true; // Error ဖြစ်လျှင် ဆက်သွားရန် ခွင့်ပြုသည်
   }
 }
 
@@ -84,8 +84,16 @@ exports.createProperty = async (req, res) => {
     const parsedLng = longitude ? parseFloat(longitude) : null;
     const parsedLat = latitude ? parseFloat(latitude) : null;
 
-    // Location ကို SQL ထဲမှာ တိုက်ရိုက် ST_MakePoint သုံးမည့်အစား Dynamic variable ဖြင့် ဆောက်မည်
-    let locationClause = "NULL";
+    // SQL Query နှင့် Array Values များကို တိကျသေချာစွာ စီစဉ်ခြင်း
+    let query = `
+      INSERT INTO properties (
+        title, description, property_type, listing_type, status, price, area_sqft,
+        address, township, city, location, owner_id, contact_phone, ownership_document, building_status
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+    `;
+
     const values = [
       title || null,
       description || null,
@@ -97,28 +105,26 @@ exports.createProperty = async (req, res) => {
       address || null,
       township || null,
       city || "Yangon",
-      owner_id,
-      contact_phone || null,
-      ownership_document || null,
-      building_status || null,
     ];
 
-    let query = `
-      INSERT INTO properties (
-        title, description, property_type, listing_type, status, price, area_sqft,
-        address, township, city, location, owner_id, contact_phone, ownership_document, building_status
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-    `;
-
     if (parsedLng !== null && parsedLat !== null) {
-      query += `ST_SetSRID(ST_MakePoint($11, $12), 4326), `;
-      values.push(parsedLng, parsedLat);
-      query += `$13, $14, $15, $16)`;
+      query += `ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15, $16)`;
+      values.push(
+        parsedLng,
+        parsedLat,
+        owner_id,
+        contact_phone || null,
+        ownership_document || null,
+        building_status || null,
+      );
     } else {
-      query += `NULL, `;
-      query += `$11, $12, $13, $14)`;
+      query += `NULL, $11, $12, $13, $14)`;
+      values.push(
+        owner_id,
+        contact_phone || null,
+        ownership_document || null,
+        building_status || null,
+      );
     }
 
     query += ` RETURNING *;`;
