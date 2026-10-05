@@ -35,9 +35,17 @@ async function uploadToSupabaseStorage(file) {
 }
 
 // Groq AI ဖြင့် ပုံမှန် ဟုတ်/မဟုတ် စစ်ဆေးခြင်း (Buffer မှတဆင့် စစ်ဆေးရန်)
+const sharp = require("sharp");
+
 async function validatePropertyImageBuffer(fileBuffer) {
   try {
-    const base64Image = fileBuffer.toString("base64");
+    // ၁။ AI ဆီ မပို့ခင် ပုံအရွယ်အစား ကြီးလွန်းလို့ Error မတက်အောင် Sharp ဖြင့် အရင် Compress လုပ်ပါ
+    const compressedBuffer = await sharp(fileBuffer)
+      .resize({ width: 1000, withoutEnlargement: true }) // လိုအပ်သော Width သတ်မှတ်ရန်
+      .jpeg({ quality: 80 }) // Quality 80% ဖြင့် Size ချုံ့မည်
+      .toBuffer();
+
+    const base64Image = compressedBuffer.toString("base64");
 
     const chatCompletion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
@@ -97,7 +105,9 @@ exports.createProperty = async (req, res) => {
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         if (file.mimetype.startsWith("image/")) {
-          const isValidPropertyImage = await validatePropertyImageBuffer(file.buffer);
+          const isValidPropertyImage = await validatePropertyImageBuffer(
+            file.buffer,
+          );
 
           if (!isValidPropertyImage) {
             return res.status(400).json({
@@ -138,10 +148,22 @@ exports.createProperty = async (req, res) => {
     // Latitude နဲ့ Longitude ပါဝင်မှုအပေါ်မူတည်၍ placeholder များကို တိကျစွာ စီစဉ်ခြင်း
     if (parsedLng !== null && parsedLat !== null) {
       query += ` ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15, $16)`;
-      values.push(parsedLng, parsedLat, owner_id, contact_phone || null, ownership_document || null, building_status || null);
+      values.push(
+        parsedLng,
+        parsedLat,
+        owner_id,
+        contact_phone || null,
+        ownership_document || null,
+        building_status || null,
+      );
     } else {
       query += ` NULL, $11, $12, $13, $14)`;
-      values.push(owner_id, contact_phone || null, ownership_document || null, building_status || null);
+      values.push(
+        owner_id,
+        contact_phone || null,
+        ownership_document || null,
+        building_status || null,
+      );
     }
 
     query += ` RETURNING *;`;
@@ -510,7 +532,11 @@ exports.rateProperty = async (req, res) => {
       WHERE id = $3 
       RETURNING *;
     `;
-    const updateQuery = await pool.query(query, [newAvg.toFixed(2), newTotal, id]);
+    const updateQuery = await pool.query(query, [
+      newAvg.toFixed(2),
+      newTotal,
+      id,
+    ]);
 
     res.json({
       message: "Rating submitted successfully",
