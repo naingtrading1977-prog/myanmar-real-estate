@@ -1,16 +1,46 @@
 const { pool } = require("../config/db");
 const Groq = require("groq-sdk");
-const fs = require("fs");
+const multer = require("multer");
+const supabase = require("../config/supabaseClient"); // Supabase client ကို ချိတ်ဆက်ရန်
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-async function validatePropertyImage(filePath) {
+// Memory Storage ကို သုံးခြင်း (ဖိုင်များကို Server ပေါ်တွင် Local သိမ်းဆည်းခြင်းမရှိဘဲ Memory ထဲတွင် ကိုင်တွယ်ရန်)
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ပုံများကို Supabase Storage သို့ တင်ပြီး Public URL ရယူသည့် Helper Function
+async function uploadToSupabaseStorage(file) {
+  const fileExt = file.originalname.split(".").pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  const filePath = `properties/${fileName}`;
+
+  // Supabase Storage Bucket ('property-images') သို့ တင်ခြင်း
+  const { data, error } = await supabase.storage
+    .from("property-images")
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new Error("Supabase Storage Upload Error: " + error.message);
+  }
+
+  // Public URL ကို ရယူခြင်း
+  const { data: publicURLData } = supabase.storage
+    .from("property-images")
+    .getPublicUrl(filePath);
+
+  return publicURLData.publicUrl;
+}
+
+// Groq AI ဖြင့် ပုံမှန် ဟုတ်/မဟုတ် စစ်ဆေးခြင်း (Buffer မှတဆင့် စစ်ဆေးရန်)
+async function validatePropertyImageBuffer(fileBuffer) {
   try {
-    const fileBuffer = fs.readFileSync(filePath);
     const base64Image = fileBuffer.toString("base64");
 
     const chatCompletion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant", // လက်ရှိသုံးလို့ရသော Groq model သို့ ပြောင်းထားပါသည်
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "user",
@@ -63,15 +93,13 @@ exports.createProperty = async (req, res) => {
   const owner_id = req.user ? req.user.id : null;
 
   try {
+    // 1. AI ဖြင့် ပုံများကို စစ်ဆေးခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         if (file.mimetype.startsWith("image/")) {
-          const isValidPropertyImage = await validatePropertyImage(file.path);
+          const isValidPropertyImage = await validatePropertyImageBuffer(file.buffer);
 
           if (!isValidPropertyImage) {
-            for (const f of req.files) {
-              if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
-            }
             return res.status(400).json({
               error:
                 "တင်လိုက်သော ပုံများထဲတွင် အိမ်ခြံမြေနှင့် မသက်ဆိုင်သည့် ပုံများ ပါဝင်နေပါသည်။ ကျေးဇူးပြု၍ မှန်ကန်သော ပုံများကိုသာ တင်ပေးပါ။",
@@ -84,7 +112,7 @@ exports.createProperty = async (req, res) => {
     const parsedLng = longitude ? parseFloat(longitude) : null;
     const parsedLat = latitude ? parseFloat(latitude) : null;
 
-    // SQL Query နှင့် Array Values များကို တိကျသေချာစွာ စီစဉ်ခြင်း
+    // 2. Database ထဲသို့ Property အချက်အလက်များ ထည့်သွင်းခြင်း
     let query = `
       INSERT INTO properties (
         title, description, property_type, listing_type, status, price, area_sqft,
@@ -132,12 +160,13 @@ exports.createProperty = async (req, res) => {
     const result = await pool.query(query, values);
     const newProperty = result.rows[0];
 
+    // 3. Supabase Storage သို့ ပုံများတင်ပြီး Public URL များကို property_images table ထဲ သိမ်းခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const imageUrl = `/uploads/${file.filename}`;
+        const publicUrl = await uploadToSupabaseStorage(file);
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
-          [newProperty.id, imageUrl, "site_photo"],
+          [newProperty.id, publicUrl, "site_photo"],
         );
       }
     }
@@ -248,31 +277,31 @@ exports.uploadPropertyFiles = async (req, res) => {
     const uploadedResults = [];
 
     for (const file of files) {
-      const fileUrl = `/uploads/${file.filename}`;
+      const publicUrl = await uploadToSupabaseStorage(file);
 
       if (file.mimetype === "application/pdf") {
         await pool.query(
           `INSERT INTO property_documents (property_id, document_name, document_url, is_private)
            VALUES ($1, $2, $3, $4)`,
-          [property_id, file.originalname, fileUrl, true],
+          [property_id, file.originalname, publicUrl, true],
         );
       } else {
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type)
            VALUES ($1, $2, $3)`,
-          [property_id, fileUrl, "site_photo"],
+          [property_id, publicUrl, "site_photo"],
         );
       }
 
       uploadedResults.push({
         filename: file.originalname,
-        url: fileUrl,
+        url: publicUrl,
       });
     }
 
     res.status(200).json({
       success: true,
-      message: "Files uploaded & saved to Database successfully!",
+      message: "Files uploaded & saved to Supabase Storage successfully!",
       data: uploadedResults,
     });
   } catch (err) {
@@ -340,7 +369,6 @@ exports.updateProperty = async (req, res) => {
 
     let paramIndex = 14;
 
-    // Latitude နဲ့ Longitude ပါလာမှသာ location ကို update လုပ်မည်
     if (
       latitude !== undefined &&
       latitude !== "" &&
@@ -363,17 +391,17 @@ exports.updateProperty = async (req, res) => {
 
     const updatedProperty = result.rows[0];
 
-    // ပုံသစ်များ ပါလာမှသာ ပုံဟောင်းများကို ဖျက်ပြီး အသစ်ထည့်မည်
+    // ပုံသစ်များ ပါလာမှသာ ပုံဟောင်းများကို ဖျက်ပြီး Supabase သို့ အသစ်တင်မည်
     if (req.files && req.files.length > 0) {
       await pool.query(`DELETE FROM property_images WHERE property_id = $1`, [
         propertyId,
       ]);
 
       for (const file of req.files) {
-        const imageUrl = `/uploads/${file.filename}`;
+        const publicUrl = await uploadToSupabaseStorage(file);
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
-          [propertyId, imageUrl, "site_photo"],
+          [propertyId, publicUrl, "site_photo"],
         );
       }
     }
@@ -487,10 +515,13 @@ exports.rateProperty = async (req, res) => {
     const newTotal = currentTotal + 1;
     const newAvg = (currentAvg * currentTotal + parsedRating) / newTotal;
 
-    const updateQuery = await pool.query(
-      "UPDATE properties SET average_rating = $1, total_ratings = $2 WHERE id = $3 RETURNING *",
-      [newAvg.toFixed(2), newTotal, id],
-    );
+    const query = `
+      UPDATE properties 
+      SET average_rating = $1, total_ratings = $2 
+      WHERE id = $3 
+      RETURNING *;
+    `;
+    const updateQuery = await pool.query(query, [newAvg.toFixed(2), newTotal, id]);
 
     res.json({
       message: "Rating submitted successfully",
