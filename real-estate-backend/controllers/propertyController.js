@@ -9,8 +9,7 @@ async function validatePropertyImage(filePath) {
     const fileBuffer = fs.readFileSync(filePath);
     const base64Image = fileBuffer.toString("base64");
 
-    const chatCompletion = await groq.chat.completions.create({
-      // 🛠️ လက်ရှိသုံးလို့ရသည့် model သို့ ပြောင်းထားသည်
+    const chatCompletion = await groq.chat.completions.create {
       model: "llama-3.3-70b-versatile",
       messages: [
         {
@@ -31,7 +30,7 @@ async function validatePropertyImage(filePath) {
       ],
       temperature: 0,
       max_tokens: 10,
-    });
+    };
 
     const resultText =
       chatCompletion.choices[0]?.message?.content?.trim().toUpperCase() || "";
@@ -82,6 +81,10 @@ exports.createProperty = async (req, res) => {
       }
     }
 
+    // Number ပုံစံသို့ ပြောင်းလဲခြင်း (Location မှန်ကန်စေရန်)
+    const parsedLng = longitude ? parseFloat(longitude) : null;
+    const parsedLat = latitude ? parseFloat(latitude) : null;
+
     const query = `
       INSERT INTO properties (
         title, description, property_type, listing_type, status, price, area_sqft,
@@ -89,7 +92,9 @@ exports.createProperty = async (req, res) => {
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        ST_SetSRID(ST_MakePoint($11, $12), 4326),
+        CASE WHEN $11 IS NOT NULL AND $12 IS NOT NULL 
+             THEN ST_SetSRID(ST_MakePoint($11, $12), 4326) 
+             ELSE NULL END,
         $13, $14, $15, $16
       )
       RETURNING *;
@@ -106,8 +111,8 @@ exports.createProperty = async (req, res) => {
       address,
       township,
       city,
-      longitude,
-      latitude,
+      parsedLng, // $11 (Longitude)
+      parsedLat, // $12 (Latitude)
       owner_id,
       contact_phone,
       ownership_document,
@@ -311,7 +316,7 @@ exports.updateProperty = async (req, res) => {
 
     if (latitude && longitude) {
       query += `, location = ST_SetSRID(ST_MakePoint($${paramIndex}, $${paramIndex + 1}), 4326)`;
-      values.push(longitude, latitude);
+      values.push(parseFloat(longitude), parseFloat(latitude));
       paramIndex += 2;
     }
 
