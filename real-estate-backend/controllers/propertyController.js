@@ -64,6 +64,7 @@ exports.createProperty = async (req, res) => {
   const owner_id = req.user ? req.user.id : null;
 
   try {
+    // ဓာတ်ပုံ AI Validation စစ်ဆေးခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         if (file.mimetype.startsWith("image/")) {
@@ -82,7 +83,6 @@ exports.createProperty = async (req, res) => {
       }
     }
 
-    // Number ပုံစံသို့ ပြောင်းလဲခြင်း (Location မှန်ကန်စေရန်)
     const parsedLng = longitude ? parseFloat(longitude) : null;
     const parsedLat = latitude ? parseFloat(latitude) : null;
 
@@ -102,22 +102,22 @@ exports.createProperty = async (req, res) => {
     `;
 
     const values = [
-      title,
-      description,
-      property_type,
+      title || null,
+      description || null,
+      property_type || null,
       listing_type || "Sale",
       status || (listing_type === "Rent" ? "For Rent" : "For Sale"),
-      price,
-      area_sqft,
-      address,
-      township,
-      city,
+      price || 0,
+      area_sqft || null,
+      address || null,
+      township || null,
+      city || "Yangon", // Default city ထည့်ပေးခြင်း
       parsedLng, // $11 (Longitude)
       parsedLat, // $12 (Latitude)
       owner_id,
-      contact_phone,
-      ownership_document,
-      building_status,
+      contact_phone || null,
+      ownership_document || null,
+      building_status || null,
     ];
 
     const result = await pool.query(query, values);
@@ -138,12 +138,15 @@ exports.createProperty = async (req, res) => {
     newProperty.images = imagesResult.rows;
 
     res.status(201).json({
-      success: `Property created successfully!`,
+      success: true,
+      message: `Property created successfully!`,
       data: newProperty,
     });
   } catch (err) {
     console.error("Create Property Error:", err.message);
-    res.status(500).json({ error: "Server Error during property creation" });
+    res
+      .status(500)
+      .json({ error: "Server Error during property creation: " + err.message });
   }
 };
 
