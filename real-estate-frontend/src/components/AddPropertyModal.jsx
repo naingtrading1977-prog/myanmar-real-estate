@@ -146,11 +146,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Price (
-                {formData.listing_type === "Rent"
-                  ? "တစ်လ (ကျပ်/သိန်း)"
-                  : "သိန်း"}
-                )
+                Price ({formData.listing_type === "Rent" ? "တစ်လ (ကျပ်/သိန်း)" : "သိန်း"})
               </label>
               <input
                 type="number"
@@ -158,11 +154,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 required
                 value={formData.price}
                 onChange={handleChange}
-                placeholder={
-                  formData.listing_type === "Rent"
-                    ? "e.g. 5 (သိန်း)"
-                    : "e.g. 2500"
-                }
+                placeholder={formData.listing_type === "Rent" ? "e.g. 5 (သိန်း)" : "e.g. 2500"}
                 className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
