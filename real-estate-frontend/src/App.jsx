@@ -171,7 +171,7 @@ function App() {
 
     if (typeof rawImg === "string") {
       imgPath = rawImg;
-    } else if (typeof rawImg === "object") {
+    } else if (typeof rawImg === "object" && rawImg !== null) {
       imgPath =
         rawImg.url ||
         rawImg.image_path ||
@@ -181,10 +181,13 @@ function App() {
     }
 
     if (!imgPath) return "";
+
+    // အကယ်၍ Supabase URL (သို့မဟုတ် http/https အစပြုသော URL) ဖြစ်နေပါက တိုက်ရိုက်ပြန်ရန်
     if (imgPath.startsWith("http://") || imgPath.startsWith("https://")) {
       return imgPath;
     }
 
+    // တကယ်လို့ Relative path သက်သက်ဖြစ်နေမှသာ Render Domain ကို တွဲပေးရန်
     const formattedPath = imgPath.startsWith("/") ? imgPath : `/${imgPath}`;
     return `https://myanmar-real-estate-1.onrender.com${formattedPath}`;
   };
