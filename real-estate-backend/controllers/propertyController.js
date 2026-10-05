@@ -9,9 +9,8 @@ async function validatePropertyImage(filePath) {
     const fileBuffer = fs.readFileSync(filePath);
     const base64Image = fileBuffer.toString("base64");
 
-    // 👇 ဤနေရာတွင် .create({ ဟူ၍ ကွင်းစကွင်းပိတ် ( ) ကို မှန်ကန်စွာ ထည့်သွင်းပေးထားပါသည်
     const chatCompletion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile", // လိုအပ်ပါက သင့်အကောင့်တွင် ရနိုင်သော model နာမည်သို့ ပြောင်းနိုင်ပါသည်
+      model: "llama3-70b-8192", // Model နာမည်ကို ပြောင်းပေးလိုက်ပါ
       messages: [
         {
           role: "user",
@@ -37,8 +36,8 @@ async function validatePropertyImage(filePath) {
       chatCompletion.choices[0]?.message?.content?.trim().toUpperCase() || "";
     return resultText.includes("YES");
   } catch (err) {
-    console.error("Groq AI Validation Error:", err);
-    return true;
+    console.error("Groq AI Validation Error:", err.message);
+    return true; // Error ဖြစ်ရင် တားမနေဘဲ ကျော်သွားရန်
   }
 }
 
@@ -64,7 +63,6 @@ exports.createProperty = async (req, res) => {
   const owner_id = req.user ? req.user.id : null;
 
   try {
-    // ဓာတ်ပုံ AI Validation စစ်ဆေးခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         if (file.mimetype.startsWith("image/")) {
@@ -86,21 +84,8 @@ exports.createProperty = async (req, res) => {
     const parsedLng = longitude ? parseFloat(longitude) : null;
     const parsedLat = latitude ? parseFloat(latitude) : null;
 
-    const query = `
-      INSERT INTO properties (
-        title, description, property_type, listing_type, status, price, area_sqft,
-        address, township, city, location, owner_id, contact_phone, ownership_document, building_status
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        CASE WHEN $11 IS NOT NULL AND $12 IS NOT NULL 
-             THEN ST_SetSRID(ST_MakePoint($11, $12), 4326) 
-             ELSE NULL END,
-        $13, $14, $15, $16
-      )
-      RETURNING *;
-    `;
-
+    // Location ကို SQL ထဲမှာ တိုက်ရိုက် ST_MakePoint သုံးမည့်အစား Dynamic variable ဖြင့် ဆောက်မည်
+    let locationClause = "NULL";
     const values = [
       title || null,
       description || null,
@@ -111,14 +96,32 @@ exports.createProperty = async (req, res) => {
       area_sqft || null,
       address || null,
       township || null,
-      city || "Yangon", // Default city ထည့်ပေးခြင်း
-      parsedLng, // $11 (Longitude)
-      parsedLat, // $12 (Latitude)
+      city || "Yangon",
       owner_id,
       contact_phone || null,
       ownership_document || null,
       building_status || null,
     ];
+
+    let query = `
+      INSERT INTO properties (
+        title, description, property_type, listing_type, status, price, area_sqft,
+        address, township, city, location, owner_id, contact_phone, ownership_document, building_status
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+    `;
+
+    if (parsedLng !== null && parsedLat !== null) {
+      query += `ST_SetSRID(ST_MakePoint($11, $12), 4326), `;
+      values.push(parsedLng, parsedLat);
+      query += `$13, $14, $15, $16)`;
+    } else {
+      query += `NULL, `;
+      query += `$11, $12, $13, $14)`;
+    }
+
+    query += ` RETURNING *;`;
 
     const result = await pool.query(query, values);
     const newProperty = result.rows[0];
