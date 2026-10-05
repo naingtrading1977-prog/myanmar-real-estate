@@ -64,15 +64,18 @@ const PropertyMap = ({ properties = [], onSelectProperty }) => {
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
         />
 
-        {properties.map((property) =>
-          property.lat && property.lng ? (
+        {properties.map((property) => {
+          // Backend မှ latitude နဲ့ longitude ကို နံပါတ်အဖြစ် ပြောင်းလဲစစ်ဆေးခြင်း
+          const lat = parseFloat(property.latitude);
+          const lng = parseFloat(property.longitude);
+
+          return !isNaN(lat) && !isNaN(lng) ? (
             <Marker
               key={property.id}
-              position={[property.lat, property.lng]}
+              position={[lat, lng]}
               icon={createCustomIcon(property)}
             >
               <Popup>
-                {/* 🔍 Popup Box အတွင်းရှိ မည်သည့်နေရာကိုမဆို နှိပ်ပါက Detail Modal ပွင့်စေရန် */}
                 <div
                   onClick={() => {
                     if (onSelectProperty) {
@@ -100,15 +103,14 @@ const PropertyMap = ({ properties = [], onSelectProperty }) => {
                     {property.listing_type === "Rent" ? "/ လ" : ""}
                   </p>
 
-                  {/* ခလုတ်ပုံစံဖြင့် ပြသထားသော စာသား */}
                   <div className="w-full mt-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg text-center transition shadow-sm">
                     👀 အသေးစိတ်ကြည့်ရန်
                   </div>
                 </div>
               </Popup>
             </Marker>
-          ) : null,
-        )}
+          ) : null;
+        })}
       </MapContainer>
     </div>
   );
