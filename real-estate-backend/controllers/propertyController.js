@@ -200,6 +200,46 @@ exports.getNearbyProperties = async (req, res) => {
   }
 };
 
+exports.getPropertyById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // views က NULL ဖြစ်နေရင် 0 သို့ပြောင်းပြီးမှ + 1 တိုးပေးရန် COALESCE ကို သုံးခြင်း
+    await pool.query(`UPDATE properties SET views = COALESCE(views, 0) + 1 WHERE id = $1`, [
+      id,
+    ]);
+
+    const query = `
+      SELECT 
+        p.*, 
+        ST_X(p.location::geometry) AS longitude,
+        ST_Y(p.location::geometry) AS latitude,
+        COALESCE(
+          json_agg(
+            json_build_object('id', img.id, 'url', img.image_url, 'type', img.image_type)
+          ) FILTER (WHERE img.id IS NOT NULL), '[]'
+        ) AS images
+      FROM properties p
+      LEFT JOIN property_images img ON p.id = img.property_id
+      WHERE p.id = $1
+      GROUP BY p.id;
+    `;
+
+    const { rows } = await pool.query(query, [id]);
+    if (rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Property not found" });
+    }
+
+    return res.status(200).json({ success: true, data: rows[0] });
+  } catch (err) {
+    console.error("DB Error:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+
 exports.uploadPropertyFiles = async (req, res) => {
   const { property_id } = req.params;
   const files = req.files;
