@@ -26,6 +26,9 @@ const AdminDashboard = () => {
 
   const [selectedProofImg, setSelectedProofImg] = useState(null);
 
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+
   const getToken = () => localStorage.getItem("token");
 
   const fetchUsers = async () => {
@@ -215,6 +218,37 @@ const AdminDashboard = () => {
         setEditingUser(null);
       } else {
         alert(result.error || "Role ပြောင်းလဲရန် မအောင်မြင်ပါ။");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error ဖြစ်ပွားနေပါသည်။");
+    }
+  };
+
+  // 🔑 User Password အသစ်ပြောင်းလဲရန်
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetPasswordUser || !newPassword) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/auth/admin/users/${resetPasswordUser.id}/password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ newPassword }),
+        },
+      );
+      const result = await response.json();
+      if (response.ok && result.success) {
+        alert("Password အသစ် ပြောင်းလဲခြင်း အောင်မြင်ပါသည်။");
+        setResetPasswordUser(null);
+        setNewPassword("");
+      } else {
+        alert(result.error || "Password ပြောင်းလဲရန် မအောင်မြင်ပါ။");
       }
     } catch (err) {
       console.error(err);
@@ -515,6 +549,16 @@ const AdminDashboard = () => {
                               >
                                 🗑️
                               </button>
+                              <button
+                                onClick={() => {
+                                  setResetPasswordUser(u);
+                                  setNewPassword("");
+                                }}
+                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-600 text-amber-600 hover:text-white text-xs font-bold rounded-lg transition border border-amber-200"
+                                title="Password ပြောင်းရန်"
+                              >
+                                🔑
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -724,6 +768,50 @@ const AdminDashboard = () => {
                 <button
                   type="submit"
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-200"
+                >
+                  ပြောင်းလဲမည်
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {resetPasswordUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100">
+            <h3 className="text-slate-800 font-bold text-base mb-1">
+              🔑 User Password အသစ်သတ်မှတ်ရန်
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              {resetPasswordUser.name} ({resetPasswordUser.email})
+            </p>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Password အသစ်
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Password အသစ် ထည့်ပါ"
+                  required
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-slate-50"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordUser(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition"
+                >
+                  ပိတ်မည်
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-amber-200"
                 >
                   ပြောင်းလဲမည်
                 </button>

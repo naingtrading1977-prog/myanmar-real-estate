@@ -39,7 +39,7 @@ exports.register = async (req, res) => {
       `INSERT INTO users (name, email, phone, password_hash, role, coins)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name, email, phone, role, coins`,
-      [name, email, phone || null, passwordHash, userRole, 0],
+      [name, email, phone || null, passwordHash, userRole, 100],
     );
 
     const token = generateToken(newUser.rows[0].id, newUser.rows[0].role);
