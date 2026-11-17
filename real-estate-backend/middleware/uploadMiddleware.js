@@ -1,6 +1,6 @@
+const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const multer = require("multer");
 
 // Cloudinary Configuration
 cloudinary.config({
@@ -9,19 +9,16 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Custom Cloudinary Storage for v2
+// Cloudinary Storage Setup
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: "myanmar_real_estate",
+    folder: "myanmar-real-estate",
     allowed_formats: ["jpg", "png", "jpeg", "webp", "pdf"],
-    resource_type: "auto",
   },
 });
 
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB Limit
-});
+const upload = multer({ storage: storage });
 
+// 🔑 အရေးကြီးသည်: upload ကို export လုပ်ပေးရန် မမေ့ပါနှင့်
 module.exports = upload;
