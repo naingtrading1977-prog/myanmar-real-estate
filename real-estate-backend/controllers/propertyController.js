@@ -127,10 +127,10 @@ exports.createProperty = async (req, res) => {
     const result = await pool.query(query, values);
     const newProperty = result.rows[0];
 
-    // Local uploads folder ထဲသို့ ရောက်သွားသော ဖိုင်လမ်းကြောင်းများကို database ထဲ သိမ်းဆည်းခြင်း
+    // Cloudinary မှ ထွက်လာသော URL ကို database ထဲ သိမ်းဆည်းခြင်း
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const fileUrl = `/uploads/${file.filename}`;
+        const fileUrl = file.path; // 👈 Cloudinary secure URL က ဒီထဲမှာ ပါလာပါတယ်
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
           [newProperty.id, fileUrl, "site_photo"],
@@ -381,7 +381,7 @@ exports.uploadPropertyFiles = async (req, res) => {
     const uploadedResults = [];
 
     for (const file of files) {
-      const fileUrl = `/uploads/${file.filename}`;
+      const fileUrl = file.path;
 
       if (file.mimetype === "application/pdf") {
         await pool.query(
@@ -501,7 +501,7 @@ exports.updateProperty = async (req, res) => {
       ]);
 
       for (const file of req.files) {
-        const fileUrl = `/uploads/${file.filename}`;
+        const fileUrl = file.path; // 👈 Cloudinary secure URL ကို သုံးခြင်း
         await pool.query(
           `INSERT INTO property_images (property_id, image_url, image_type) VALUES ($1, $2, $3)`,
           [propertyId, fileUrl, "site_photo"],
