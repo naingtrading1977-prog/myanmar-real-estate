@@ -95,6 +95,7 @@ function App() {
   };
 
   // 🔄 Component စတက်လာချိန်တွင် ဒေတာဆွဲထုတ်ခြင်း
+  // 🔄 Component စတက်လာချိန်တွင် ဒေတာဆွဲထုတ်ခြင်း နှင့် Auto Slide လုပ်ဆောင်ခြင်း
   useEffect(() => {
     let isMounted = true;
 
@@ -115,6 +116,27 @@ function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  // 🔄 ပုံများကို ၃ စက္ကန့်တစ်ကြိမ် အလိုအလျောက် Slide ဖြစ်စေရန်
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProperties((prevProperties) => {
+        prevProperties.forEach((item) => {
+          const images = item.images || [];
+          if (images.length > 1) {
+            setCardImageIndices((prev) => {
+              const currentIndex = prev[item.id] || 0;
+              const nextIndex = (currentIndex + 1) % images.length;
+              return { ...prev, [item.id]: nextIndex };
+            });
+          }
+        });
+        return prevProperties;
+      });
+    }, 3000); // ၃ စက္ကန့်တစ်ကြိမ်
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchPropertiesData = async () => {
@@ -181,15 +203,18 @@ function App() {
         rawImg.image_path ||
         rawImg.path ||
         rawImg.secure_url ||
+        rawImg.imageUrl ||
         "";
     }
 
     if (!imgPath) return "";
 
+    // 🌐 အကယ်၍ Cloudinary URL (သို့မဟုတ် http/https ပါသော URL) ဖြစ်ပါက တိုက်ရိုက်ပြန်ပေးမည်
     if (imgPath.startsWith("http://") || imgPath.startsWith("https://")) {
       return imgPath;
     }
 
+    // Local path ဖြစ်မှသာ baseURL နှင့် ပေါင်းမည်
     const formattedPath = imgPath.startsWith("/") ? imgPath : `/${imgPath}`;
     const API_HOST = import.meta.env.VITE_API_URL || "http://localhost:5002";
     const baseURL = API_HOST.replace(/\/api$/, "");
