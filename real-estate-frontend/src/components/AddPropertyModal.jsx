@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import API from "../api/axios";
 import { useSelector } from "react-redux"; // 👈 Redux မှ user အချက်အလက်ယူရန်
 import { createProperty } from "../api/propertyApi";
+import CustomModal from "./CustomModal";
 
 const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   const { user } = useSelector((state) => state.auth); // 👈 Login ဝင်ထားသော user ကို ခေါ်ယူခြင်း
@@ -24,7 +25,6 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
           }
         } catch (err) {
           console.error("Failed to fetch latest user coins:", err);
-          // အကယ်၍ API မရပါက Redux / LocalStorage ထဲကဟာကို ယာယီသုံးရန်
           const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
           setUserCoins(
             storedUser.coins !== undefined
@@ -51,12 +51,20 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
     lat: "",
     lng: "",
     contact_phone: "",
-    ownership_document: "ဂရန် (Grant)", // 📄 Default ပိုင်ဆိုင်မှု စာရွက်စာတမ်း အမျိုးအစား
+    ownership_document: "ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား", // 📄 Default ပိုင်ဆိုင်မှု စာရွက်စာတမ်း အမျိုးအစား
     building_status: "BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး",
   });
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // 🌟 Pro Modern Custom Modal State
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
 
   if (!isOpen) return null;
 
@@ -66,6 +74,44 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
 
   const handleFileChange = (e) => {
     setFiles(e.target.files);
+  };
+
+  // 📍 GPS Location အလိုအလျောက် ယူပေးမည့် Function (Custom Modal ဖြင့် ချိတ်ဆက်ထားသည်)
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFormData((prev) => ({
+            ...prev,
+            lat: position.coords.latitude.toFixed(6),
+            lng: position.coords.longitude.toFixed(6),
+          }));
+          setModalConfig({
+            isOpen: true,
+            title: "အောင်မြင်ပါသည်",
+            message: "လက်ရှိတည်နေရာ (GPS) ကို အောင်မြင်စွာ ရယူပြီးပါပြီ။",
+            type: "success",
+          });
+        },
+        (error) => {
+          console.error(error);
+          setModalConfig({
+            isOpen: true,
+            title: "အမှားအယွင်း ရှိနေပါသည်",
+            message:
+              "တည်နေရာ ရယူ၍ မရပါ။ ကျေးဇူးပြု၍ Location Permission ခွင့်ပြုပေးပါ။",
+            type: "error",
+          });
+        },
+      );
+    } else {
+      setModalConfig({
+        isOpen: true,
+        title: "မထောက်ပံ့ပါ",
+        message: "Browser တွင် Geolocation ကို မထောက်ပံ့ပါ။",
+        type: "error",
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -90,30 +136,33 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
 
       // 🛠️ Backend Database Schema နှင့် ချိန်ကိုက်ခြင်း
       uploadData.append("property_type", formData.type);
-      uploadData.append("listing_type", formData.listing_type); // 🏷️ အရောင်း/အငှား ပို့ပေးခြင်း
+      uploadData.append("listing_type", formData.listing_type);
       uploadData.append(
         "status",
         formData.listing_type === "Rent" ? "For Rent" : "For Sale",
       );
 
-      // 📍 Township ထည့်သွင်းခြင်း
       uploadData.append("township", formData.township || "Bahan");
       uploadData.append("city", "Yangon");
       uploadData.append("latitude", formData.lat);
       uploadData.append("longitude", formData.lng);
       uploadData.append("contact_phone", formData.contact_phone);
       uploadData.append("ownership_document", formData.ownership_document);
-      uploadData.append("building_status", formData.building_status);
-      uploadData.append("owner_id", user?.id || user?._id || 1); // 👈 User ID အမှန်ကို ပို့ပေးခြင်း
+      uploadData.append(
+        "building_status",
+        formData.type === "Apartment"
+          ? formData.building_status
+          : "လူနေထိုင်ခွင့် အလိုလိုပြီးသား (ဂရန်/ပါမစ်)",
+      );
+      uploadData.append("owner_id", user?.id || user?._id || 1);
 
-      // ပုံများ/Document ဖိုင်များ တင်ခြင်း
       for (let i = 0; i < files.length; i++) {
         uploadData.append("images", files[i]);
       }
 
       await createProperty(uploadData);
       setLoading(false);
-      onPropertyAdded(); // Property စာရင်း ပြန် refresh ရန်
+      onPropertyAdded();
       onClose();
     } catch (err) {
       setLoading(false);
@@ -128,310 +177,333 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
     "2";
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[9999] flex justify-center items-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold"
-        >
-          ✕
-        </button>
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[9999] flex justify-center items-center p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold"
+          >
+            ✕
+          </button>
 
-        <h2 className="text-2xl font-bold mb-2 text-slate-800">
-          Post New Property
-        </h2>
+          <h2 className="text-2xl font-bold mb-2 text-slate-800">
+            Post New Property
+          </h2>
 
-        {/* 🪙 Coins Balance & Cost Info Box */}
-        <div className="bg-slate-900 text-slate-100 p-3 rounded-xl mb-4 flex items-center justify-between text-xs shadow-inner border border-slate-800">
-          <div>
-            <span className="text-slate-400">သင့်လက်ကျန် Coins: </span>
-            <span className="text-emerald-400 font-bold text-sm">
-              {userCoins} Coins
-            </span>
-          </div>
-          <div>
-            <span className="text-slate-400">ကျသင့်ငွေ: </span>
-            <span className="text-amber-400 font-bold">
-              -{requiredCoins} Coins / Post
-            </span>
-          </div>
-        </div>
-
-        {/* Coins မလုံလောက်ပါက Warning နှင့် Top-up ညွှန်ကြားချက်ပြရန် */}
-        {!hasEnoughCoins && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3.5 rounded-xl text-xs mb-4 space-y-2 shadow-sm">
-            <div className="flex items-center justify-between font-semibold text-amber-900">
-              <span>⚠️ သင့်တွင် Coins မလုံလောက်ပါ။ (လိုအပ်သည်: 30 Coins)</span>
+          {/* 🪙 Coins Balance & Cost Info Box */}
+          <div className="bg-slate-900 text-slate-100 p-3 rounded-xl mb-4 flex items-center justify-between text-xs shadow-inner border border-slate-800">
+            <div>
+              <span className="text-slate-400">သင့်လက်ကျန် Coins: </span>
+              <span className="text-emerald-400 font-bold text-sm">
+                {userCoins} Coins
+              </span>
             </div>
-            <div className="bg-white p-3 rounded-lg border border-amber-200 space-y-1.5">
-              <p className="font-bold text-slate-800 flex items-center gap-1">
-                🪙 Coins အလိုအလျောက် ဖြည့်သွင်းရန် (Auto Top-up)
-              </p>
-              <p className="text-slate-700">
-                KBZPay / AYA Pay:{" "}
-                <span className="font-mono font-bold text-emerald-600 text-sm">
-                  09784970257
-                </span>{" "}
-                (Tun Tun Naing)
-              </p>
-              <div className="bg-emerald-50 border border-emerald-200 p-2 rounded text-emerald-900 font-medium">
-                💡 ငွေလွှဲသည့်အခါ Note (သို့) Message တွင်{" "}
-                <span className="underline font-bold text-red-600">
-                  user_{activeUserId}
-                </span>{" "}
-                ဟု မိမိ၏ ID ဖြင့် မဖြစ်မနေ ထည့်သွင်းပေးပါ။ (ဥပမာ -{" "}
-                <span className="font-mono bg-white px-1.5 py-0.5 rounded border font-bold text-emerald-700">
-                  user_{activeUserId}
+            <div>
+              <span className="text-slate-400">ကျသင့်ငွေ: </span>
+              <span className="text-amber-400 font-bold">
+                -{requiredCoins} Coins / Post
+              </span>
+            </div>
+          </div>
+
+          {!hasEnoughCoins && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3.5 rounded-xl text-xs mb-4 space-y-2 shadow-sm">
+              <div className="flex items-center justify-between font-semibold text-amber-900">
+                <span>
+                  ⚠️ သင့်တွင် Coins မလုံလောက်ပါ။ (လိုအပ်သည်: 30 Coins)
                 </span>
-                )
               </div>
-              <p className="text-[11px] text-slate-500">
-                ငွေလွှဲပြီးပါက စက္ကန့်ပိုင်းအတွင်း သင့်အကောင့်ထဲသို့ Coins များ
-                အလိုအလျောက် ဝင်ရောက်လာမည် ဖြစ်ပါသည်။
-              </p>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Property Title (ခေါင်းစဉ်)
-            </label>
-            <input
-              type="text"
-              name="title"
-              required
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="e.g. Yankin Luxury Condo"
-              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-
-          {/* 🏷️ Listing Type (အရောင်း / အငှား) နှင့် Property Type (အမျိုးအစား) */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Listing Type (ကြော်ငြာအမျိုးအစား)
-              </label>
-              <select
-                name="listing_type"
-                value={formData.listing_type}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold text-emerald-700 bg-emerald-50/50"
-              >
-                <option value="Sale">🏷️ အရောင်း (For Sale)</option>
-                <option value="Rent">🏠 အငှား (For Rent)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Property Type (အိမ်ခြံမြေ အမျိုးအစား)
-              </label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1"
-              >
-                <option value="Apartment">Apartment / Condo</option>
-                <option value="Land">Land Plot</option>
-                <option value="Villa">Villa / House</option>
-              </select>
-            </div>
-          </div>
-
-          {/* 💰 Price နှင့် 📍 Township (တည်နေရာ) ထည့်ရန် Field များ */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Price (
-                {formData.listing_type === "Rent"
-                  ? "တစ်လ (ကျပ်/သိန်း)"
-                  : "သိန်း"}
-                )
-              </label>
-              <input
-                type="number"
-                name="price"
-                required
-                value={formData.price}
-                onChange={handleChange}
-                placeholder={
-                  formData.listing_type === "Rent"
-                    ? "e.g. 5 (သိန်း)"
-                    : "e.g. 2500"
-                }
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Township / Location (တည်နေရာ/မြို့နယ်)
-              </label>
-              <input
-                type="text"
-                name="township"
-                required
-                value={formData.township}
-                onChange={handleChange}
-                placeholder="ဥပမာ - ဗဟန်း (ወይም တောင်ဒဂုံ)"
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Latitude (မြေပုံ မျဉ်းပြိုင်)
-              </label>
-              <input
-                type="number"
-                step="any"
-                name="lat"
-                required
-                value={formData.lat}
-                onChange={handleChange}
-                placeholder="e.g. 16.8409"
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Longitude (မြေပုံ မျဉ်းထောင်)
-              </label>
-              <input
-                type="number"
-                step="any"
-                name="lng"
-                required
-                value={formData.lng}
-                onChange={handleChange}
-                placeholder="e.g. 96.1735"
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Contact Phone (ဆက်သွယ်ရန် ဖုန်း)
-            </label>
-            <input
-              type="text"
-              name="contact_phone"
-              required
-              value={formData.contact_phone}
-              onChange={handleChange}
-              placeholder="e.g. 09784970257"
-              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            {/* 📄 Ownership Document Select Box */}
-            <label className="block text-sm font-medium text-gray-700">
-              Ownership Document (ပိုင်ဆိုင်မှု စာရွက်စာတမ်း)
-            </label>
-            <select
-              name="ownership_document"
-              value={formData.ownership_document}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-            >
-              <option value="ဂရန် (Grant)">ဂရန် (Grant)</option>
-              <option value="ပါမစ် (Permit)">ပါမစ် (Permit)</option>
-              <option value="ဘိုးဘွားပိုင်မြေ (Freehold)">
-                ဘိုးဘွားပိုင်မြေ (Freehold)
-              </option>
-              <option value="ဂရန်အမည်ပေါက် (Grant Name Transfer)">
-                ဂရန်အမည်ပေါက်
-              </option>
-              <option value="အခြား (Other)">အခြား (Other)</option>
-            </select>
-          </div>
-
-          {/* Type က Apartment ဖြစ်မှသာ Building Status ကို ပြရန် */}
-          {formData.type === "Apartment" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Building Status (BCC နှင့် လူနေထိုင်ခွင့် အခြေအနေ)
-              </label>
-              <select
-                name="building_status"
-                value={formData.building_status}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး">
-                  BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး
-                </option>
-                <option value="BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး">
-                  BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး
-                </option>
-                <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ">
-                  BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ
-                </option>
-                <option value="ဆောက်လုပ်ဆဲ (Under Construction)">
-                  ဆောက်လုပ်ဆဲ (Under Construction)
-                </option>
-              </select>
+              <div className="bg-white p-3 rounded-lg border border-amber-200 space-y-1.5">
+                <p className="font-bold text-slate-800 flex items-center gap-1">
+                  🪙 Coins အလိုအလျောက် ဖြည့်သွင်းရန် (Auto Top-up)
+                </p>
+                <p className="text-slate-700">
+                  KBZPay / AYA Pay:{" "}
+                  <span className="font-mono font-bold text-emerald-600 text-sm">
+                    09784970257
+                  </span>{" "}
+                  (Tun Tun Naing)
+                </p>
+                <div className="bg-emerald-50 border border-emerald-200 p-2 rounded text-emerald-900 font-medium">
+                  💡 ငွေလွှဲသည့်အခါ Note (သို့) Message တွင်{" "}
+                  <span className="underline font-bold text-red-600">
+                    user_{activeUserId}
+                  </span>{" "}
+                  ဟု မိမိ၏ ID ဖြင့် မဖြစ်မနေ ထည့်သွင်းပေးပါ။
+                </div>
+              </div>
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Description (အသေးစိတ် ဖော်ပြချက်)
-            </label>
-            <textarea
-              name="description"
-              rows="3"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="အသေးစိတ် ရေးသားရန်..."
-              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
-            ></textarea>
-          </div>
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
+              {error}
+            </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Upload Images/Documents (ပုံများ တင်ရန်)
-            </label>
-            <input
-              type="file"
-              multiple
-              accept="image/*,.pdf"
-              onChange={handleFileChange}
-              className="w-full text-sm text-gray-500 mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Property Title (ခေါင်းစဉ်)
+              </label>
+              <input
+                type="text"
+                name="title"
+                required
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="e.g. Yankin Luxury Condo"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading || !hasEnoughCoins}
-            className={`w-full text-white font-medium py-2.5 rounded-lg transition duration-200 shadow-md ${
-              hasEnoughCoins
-                ? "bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
-                : "bg-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {loading
-              ? "Uploading & Posting..."
-              : hasEnoughCoins
-                ? "Post Property (30 Coins ကျသင့်မည်)"
-                : "Coins မလုံလောက်ပါ"}
-          </button>
-        </form>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Listing Type (ကြော်ငြာအမျိုးအစား)
+                </label>
+                <select
+                  name="listing_type"
+                  value={formData.listing_type}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold text-emerald-700 bg-emerald-50/50"
+                >
+                  <option value="Sale">🏷️ အရောင်း (For Sale)</option>
+                  <option value="Rent">🏠 အငှား (For Rent)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Property Type (အိမ်ခြံမြေ အမျိုးအစား)
+                </label>
+                <select
+                  name="type"
+                  value={formData.type}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1"
+                >
+                  <option value="Apartment">
+                    Apartment / Condo (တိုက်ခန်း)
+                  </option>
+                  <option value="Land">Land Plot (မြေကွက်)</option>
+                  <option value="Villa">Villa / House (လုံးချင်းအိမ်)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Price (
+                  {formData.listing_type === "Rent"
+                    ? "တစ်လ (ကျပ်/သိန်း)"
+                    : "သိန်း"}
+                  )
+                </label>
+                <input
+                  type="number"
+                  name="price"
+                  required
+                  value={formData.price}
+                  onChange={handleChange}
+                  placeholder={
+                    formData.listing_type === "Rent" ? "e.g. 5" : "e.g. 2500"
+                  }
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Township / Location (တည်နေရာ/မြို့နယ်)
+                </label>
+                <input
+                  type="text"
+                  name="township"
+                  required
+                  value={formData.township}
+                  onChange={handleChange}
+                  placeholder="ဥပမာ - ဗဟန်း"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Lat & Lng with GPS Auto-Detect Button */}
+            <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-700">
+                  📍 တည်နေရာ မြေပုံ (GPS Coordinates)
+                </span>
+                <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1"
+                >
+                  <span>📍</span> ကျွန်ုပ်ရှိရာနေရာ (Auto-Detect)
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <input
+                    type="number"
+                    step="any"
+                    name="lat"
+                    required
+                    value={formData.lat}
+                    onChange={handleChange}
+                    placeholder="Latitude (လတ္တီကျု)"
+                    className="w-full border border-gray-300 rounded-lg p-2 bg-white text-sm"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    step="any"
+                    name="lng"
+                    required
+                    value={formData.lng}
+                    onChange={handleChange}
+                    placeholder="Longitude (လောင်ဂျီကျု)"
+                    className="w-full border border-gray-300 rounded-lg p-2 bg-white text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Contact Phone (ဆက်သွယ်ရန် ဖုန်း)
+              </label>
+              <input
+                type="text"
+                name="contact_phone"
+                required
+                value={formData.contact_phone}
+                onChange={handleChange}
+                placeholder="e.g. 09784970257"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Ownership Document (ပိုင်ဆိုင်မှု စာရွက်စာတမ်း)
+              </label>
+              <select
+                name="ownership_document"
+                value={formData.ownership_document}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                <option value="ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား">
+                  ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား
+                </option>
+                <option value="ပါမစ်မြေ (Permit Land) - လူနေထိုင်ခွင့်ပြီးသား">
+                  ပါမစ်မြေ (Permit Land) - လူနေထိုင်ခွင့်ပြီးသား
+                </option>
+                <option value="ဘိုးဘွားပိုင်မြေ (Freehold)">
+                  ဘိုးဘွားပိုင်မြေ (Freehold)
+                </option>
+                <option value="တိုက်ခန်း (Apartment)">
+                  တိုက်ခန်း (Apartment)
+                </option>
+                <option value="လုပ်အားပေးစာအုပ်">လုပ်အားပေးစာအုပ်</option>
+                <option value="ရွာမြေ">ရွာမြေ</option>
+                <option value="ဥယျာဥ်ခြံမြေ">ဥယျာဥ်ခြံမြေ</option>
+                <option value="လယ်မြေ (လန 30 ကျပြီး)">
+                  လယ်မြေ (လန 30 ကျပြီး)
+                </option>
+                <option value="အခြား (Other)">အခြား (Other)</option>
+              </select>
+            </div>
+
+            {/* Type က Apartment ဖြစ်မှသာ Building Status ကို ပြရန် */}
+            {formData.type === "Apartment" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Building Status (BCC နှင့် လူနေထိုင်ခွင့် အခြေအနေ)
+                </label>
+                <select
+                  name="building_status"
+                  value={formData.building_status}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး">
+                    BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး
+                  </option>
+                  <option value="BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး">
+                    BCC မကျသေး / လူနေထိုင်ခွင့် ကျပြီး
+                  </option>
+                  <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ">
+                    BCC ကျပြီး / လူနေထိုင်ခွင့် ဆောင်ရွက်ဆဲ
+                  </option>
+                  <option value="ဆောက်လုပ်ဆဲ (Under Construction)">
+                    ဆောက်လုပ်ဆဲ (Under Construction)
+                  </option>
+                  <option value="အခြား (Other)">
+                    အခြား (လူနေထိုင်ခွင့်ရှိပြီးသား)
+                  </option>
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Description (အသေးစိတ် ဖော်ပြချက်)
+              </label>
+              <textarea
+                name="description"
+                rows="3"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="အသေးစိတ် ရေးသားရန်..."
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              ></textarea>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Upload Images/Documents (ပုံများ တင်ရန်)
+              </label>
+              <input
+                type="file"
+                multiple
+                accept="image/*,.pdf"
+                onChange={handleFileChange}
+                className="w-full text-sm text-gray-500 mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !hasEnoughCoins}
+              className={`w-full text-white font-medium py-2.5 rounded-lg transition duration-200 shadow-md ${
+                hasEnoughCoins
+                  ? "bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+                  : "bg-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {loading
+                ? "Uploading & Posting..."
+                : hasEnoughCoins
+                  ? "Post Property (30 Coins ကျသင့်မည်)"
+                  : "Coins မလုံလောက်ပါ"}
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
+
+      {/* 🌟 Pro Modern Custom Modal Component */}
+      <CustomModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+      />
+    </>
   );
 };
 

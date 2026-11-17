@@ -65,7 +65,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Background Silent Fetch များ (Loading လုံးဝမပါတော့ပါ)
   const fetchUsersSilent = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/users`, {
@@ -96,8 +95,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🔄 Component စတက်လာတာနဲ့ အချက်အလက်များ ဆွဲထုတ်ရန် (Warning လုံးဝမတက်တော့ပါ)
-  // 🔄 Component စတက်လာတာနဲ့ အချက်အလက်များ ဆွဲထုတ်ရန် (Cascading render လုံးဝမရှိတော့ပါ)
   useEffect(() => {
     let isMounted = true;
 
@@ -105,7 +102,6 @@ const AdminDashboard = () => {
       try {
         const token = getToken();
 
-        // Users Fetch
         const userRes = await fetch(`${API_BASE_URL}/admin/users`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -114,7 +110,6 @@ const AdminDashboard = () => {
           setUsers(userResult.data || userResult.users || []);
         }
 
-        // Properties Fetch
         const propRes = await fetch(`${API_BASE_URL}/properties`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -134,7 +129,6 @@ const AdminDashboard = () => {
 
     loadInitialData();
 
-    // Background Polling (၅ စက္ကန့်တစ်ကြိမ် ဒေတာအသစ်ကို အလိုအလျောက် ဆွဲထုတ်မည်)
     const interval = setInterval(() => {
       fetchUsersSilent();
       fetchPropertiesSilent();
@@ -218,6 +212,37 @@ const AdminDashboard = () => {
         setEditingUser(null);
       } else {
         alert(result.error || "Role ပြောင်းလဲရန် မအောင်မြင်ပါ။");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error ဖြစ်ပွားနေပါသည်။");
+    }
+  };
+
+  // 🤝 Agent အတည်ပြုပေးရန် (Approve / Reject)
+  const handleApproveAgent = async (userId, status) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/auth/admin/users/${userId}/approve`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ is_approved: status }),
+        },
+      );
+      const result = await response.json();
+      if (response.ok && result.success) {
+        // 🔑 အဓိကပြင်ဆင်ချက်: State ထဲရှိ users စာရင်းကို ချက်ချင်း update လုပ်ပေးပါ (Polling ကို မစောင့်တော့ဘဲ UI မှာ ချက်ချင်းပြောင်းသွားစေရန်)
+        setUsers((prevUsers) =>
+          prevUsers.map((u) =>
+            u.id === userId ? { ...u, is_approved: status } : u,
+          ),
+        );
+      } else {
+        alert(result.error || "အပြောင်းအလဲလုပ်ရန် မအောင်မြင်ပါ။");
       }
     } catch (err) {
       console.error(err);
@@ -459,7 +484,7 @@ const AdminDashboard = () => {
                       <th className="p-4 font-bold">ID</th>
                       <th className="p-4 font-bold">User Profile</th>
                       <th className="p-4 font-bold">Phone</th>
-                      <th className="p-4 font-bold">Role</th>
+                      <th className="p-4 font-bold">Role & Approval</th>
                       <th className="p-4 font-bold">Coins</th>
                       <th className="p-4 font-bold">Proof</th>
                       <th className="p-4 font-bold text-center">Actions</th>
@@ -493,17 +518,30 @@ const AdminDashboard = () => {
                             {u.phone || "မရှိပါ။"}
                           </td>
                           <td className="p-4">
-                            <span
-                              className={`px-3 py-1 text-[11px] font-bold rounded-full uppercase tracking-wider ${
-                                u.role === "admin"
-                                  ? "bg-purple-100 text-purple-700"
-                                  : u.role === "agent"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {u.role}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-3 py-1 text-[11px] font-bold rounded-full uppercase tracking-wider ${
+                                  u.role === "admin"
+                                    ? "bg-purple-100 text-purple-700"
+                                    : u.role === "agent"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {u.role}
+                              </span>
+                              {u.role === "agent" && (
+                                <span
+                                  className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                                    u.is_approved
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-amber-100 text-amber-700 animate-pulse"
+                                  }`}
+                                >
+                                  {u.is_approved ? "Approved" : "Pending"}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             <span className="px-3 py-1 text-xs font-extrabold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center w-fit gap-1">
@@ -523,7 +561,26 @@ const AdminDashboard = () => {
                             )}
                           </td>
                           <td className="p-4">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {u.role === "agent" && !u.is_approved && (
+                                <button
+                                  onClick={() => handleApproveAgent(u.id, true)}
+                                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition"
+                                >
+                                  ✅ Approve
+                                </button>
+                              )}
+                              {u.role === "agent" && u.is_approved && (
+                                <button
+                                  onClick={() =>
+                                    handleApproveAgent(u.id, false)
+                                  }
+                                  className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition"
+                                >
+                                  ❌ Revoke
+                                </button>
+                              )}
+
                               <button
                                 onClick={() => {
                                   setSelectedUserForCoins(u);

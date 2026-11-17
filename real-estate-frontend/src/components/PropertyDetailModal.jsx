@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import API from "../api/axios";
+import { useNavigate } from "react-router-dom";
+import CustomModal from "./CustomModal";
 
 const PropertyDetailModal = ({
   isOpen,
@@ -7,8 +9,17 @@ const PropertyDetailModal = ({
   property,
   onPropertyUpdated,
 }) => {
+  const navigate = useNavigate();
   const [rating, setRating] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // 🌟 Pro Modern Custom Modal State
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
 
   // 📞 Unlocked Contact & Address States
   const [unlockedPhone, setUnlockedPhone] = useState(null);
@@ -22,16 +33,11 @@ const PropertyDetailModal = ({
   // 👁️ Modal ပွင့်လာသည်နှင့် View Count ကို 1 တိုးပေးမည့် function
   useEffect(() => {
     if (isOpen && property && property.id) {
-      setCurrentImageIndex(0);
-      setUnlockedPhone(null);
-      setUnlockedAddress(null);
-
-      // Backend ဆီသို့ View တိုးရန် Request လှမ်းပို့ခြင်း
       const incrementView = async () => {
         try {
           await API.put(`/properties/${property.id}/view`);
           if (typeof onPropertyUpdated === "function") {
-            onPropertyUpdated(); // View တိုးသွားသည်ကို Home/Listings တွင် ချက်ချင်း Update ပြန်လုပ်ရန်
+            onPropertyUpdated();
           }
         } catch (err) {
           console.error("Failed to increment view count:", err);
@@ -103,8 +109,21 @@ const PropertyDetailModal = ({
     }
   };
 
-  // 🪙 Click လိုက်တာနဲ့ 20 Coins ဖြတ်ပြီး Contact ဖော်ပြမည့် Function
+  // 🪙 Click လိုက်တာနဲ့ Token ရှိမရှိစစ်မည်၊ မရှိလျှင် Custom Modal ဖြင့် သတိပေးပြီး Login သို့ ပို့မည်
   const handleUnlockContact = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setModalConfig({
+        isOpen: true,
+        title: "အကောင့်ဝင်ရန် လိုအပ်ပါသည်",
+        message:
+          "ကျေးဇူးပြု၍ ဖုန်းနံပါတ်နှင့် လိပ်စာ ကြည့်ရှုရန် အကောင့်ဝင်ပါ (သို့မဟုတ်) အကောင့်အသစ်ဖွင့်ပါ။",
+        type: "info",
+      });
+      return;
+    }
+
     try {
       setUnlocking(true);
       const response = await API.post(`/properties/${property.id}/unlock`);
@@ -119,10 +138,14 @@ const PropertyDetailModal = ({
       }
     } catch (err) {
       console.error("Unlock error:", err);
-      alert(
-        err.response?.data?.error ||
+      setModalConfig({
+        isOpen: true,
+        title: "လုပ်ဆောင်ချက် မအောင်မြင်ပါ",
+        message:
+          err.response?.data?.error ||
           "Coins မလုံလောက်ပါ သို့မဟုတ် အမှားအယွင်းရှိနေပါသည်။",
-      );
+        type: "error",
+      });
     } finally {
       setUnlocking(false);
     }
@@ -131,7 +154,12 @@ const PropertyDetailModal = ({
   const handleRatingSubmit = async (e) => {
     e.preventDefault();
     if (rating === 0 || rating === "0") {
-      alert("ကျေးဇူးပြု၍ ကြယ်ပွင့် (Rating) ရွေးချယ်ပါ။");
+      setModalConfig({
+        isOpen: true,
+        title: "အချက်အလက် လိုအပ်နေပါသည်",
+        message: "ကျေးဇူးပြု၍ ကြယ်ပွင့် (Rating) ရွေးချယ်ပါ။",
+        type: "warning",
+      });
       return;
     }
 
@@ -139,14 +167,24 @@ const PropertyDetailModal = ({
       await API.post(`/properties/${property.id}/rating`, {
         rating: parseFloat(rating),
       });
-      alert("Rating ပေးခြင်း အောင်မြင်ပါသည်။");
+      setModalConfig({
+        isOpen: true,
+        title: "အောင်မြင်ပါသည်။",
+        message: "Rating ပေးခြင်း အောင်မြင်ပါသည်။",
+        type: "success",
+      });
       if (typeof onPropertyUpdated === "function") {
         onPropertyUpdated();
       }
       onClose();
     } catch (err) {
       console.error("Failed to submit rating", err);
-      alert(err.response?.data?.error || "Rating ပေး၍ မရပါ။");
+      setModalConfig({
+        isOpen: true,
+        title: "အမှားအယွင်း ရှိနေပါသည်",
+        message: err.response?.data?.error || "Rating ပေး၍ မရပါ။",
+        type: "error",
+      });
     }
   };
 
@@ -438,8 +476,25 @@ const PropertyDetailModal = ({
           </div>
         </div>
       )}
+
+      {/* 🌟 Pro Modern Custom Modal Component */}
+
+      <CustomModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onClose={() => {
+          setModalConfig({ ...modalConfig, isOpen: false });
+          // အကယ်၍ အကောင့်ဝင်ရန် လိုအပ်၍ ပိတ်လိုက်ပါက Login စာမျက်နှာသို့ ပို့ပေးမည်
+          if (modalConfig.title === "အကောင့်ဝင်ရန် လိုအပ်ပါသည်") {
+            onClose();
+            navigate("/login");
+          }
+        }}
+      />
     </>
   );
 };
 
-export default PropertyDetailModal;
+export default PropertyDetailModal; // (သို့မဟုတ် export default PropertyDetailModal;)

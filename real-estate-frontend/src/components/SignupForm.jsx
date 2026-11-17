@@ -9,7 +9,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     email: "",
     password: "",
     phone: "",
-    role: "client",
+    role: "client", // 👈 Default အနေဖြင့် client ဟု သတ်မှတ်ထားခြင်း
   });
 
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
           email: formData.email,
           password: formData.password,
           phone: formData.phone,
-          role: formData.role,
+          role: formData.role, // 👈 Backend သို့ role ကို ပို့ပေးခြင်း
         }),
       });
 
@@ -130,6 +130,32 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
             placeholder="••••••••"
           />
+        </div>
+
+        {/* 🤝 အကောင့်အမျိုးအစား (Role) ရွေးချယ်ရန် Dropdown */}
+        <div>
+          <label className="block text-xs text-slate-300 mb-1">
+            အကောင့်အမျိုးအစား (Role)
+          </label>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-medium"
+          >
+            <option value="client">
+              🏠 အိမ်ရှာသူ (Client - ပို့စ်ကြည့်ရန်နှင့် ဆက်သွယ်ရန်)
+            </option>
+            <option value="agent">
+              🤝 အိမ်ခြံမြေ အကျိုးဆောင် (Agent - ပို့စ်တင်ရန်)
+            </option>
+          </select>
+          {formData.role === "agent" && (
+            <p className="text-xs text-amber-400 mt-1.5">
+              ⚠️ အကျိုးဆောင်အကောင့်သည် Admin ၏ အတည်ပြုချက် (Approval)
+              ရယူပြီးမှသာ ပို့စ်တင်နိုင်မည် ဖြစ်ပါသည်။
+            </p>
+          )}
         </div>
 
         <button

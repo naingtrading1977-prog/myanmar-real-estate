@@ -8,7 +8,12 @@ const { protect, authorize } = require("../middleware/authMiddleware");
 // Public Routes
 router.post("/register", authController.register);
 router.post("/login", authController.login);
-
+router.put(
+  "/admin/users/:id/approve",
+  protect,
+  authorize("admin"),
+  authController.approveAgent,
+);
 // Protected Routes (Login ဝင်ထားမှ ရမည်)
 router.get("/me", protect, authController.getMe);
 

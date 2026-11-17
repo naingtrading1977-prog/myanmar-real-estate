@@ -35,7 +35,8 @@ connectDB();
 app.get("/api/admin/users", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, email, phone, role, coins, payment_proof, created_at FROM users ORDER BY id ASC",
+      "SELECT id, name, email, phone, role, coins, payment_proof, is_approved, created_at FROM users ORDER BY id ASC",
+      // 👈 အပေါ်က query ထဲမှာ is_approved ကို ထည့်ပေးလိုက်ပါ
     );
     res.json({ success: true, data: result.rows });
   } catch (err) {
