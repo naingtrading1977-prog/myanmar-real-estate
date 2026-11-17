@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-
+const { pool } = require("../config/db");
 const upload = require("../middleware/uploadMiddleware");
 const { protect } = require("../middleware/authMiddleware"); // 🔑 Auth Middleware ကို ခေါ်ယူခြင်း
 
