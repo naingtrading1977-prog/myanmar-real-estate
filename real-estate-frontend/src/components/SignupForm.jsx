@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { auth } from "../firebase";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5002/api";
 
 export default function SignupForm({ onSignupSuccess, switchToLogin }) {
-  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -14,101 +13,29 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     phone: "",
     role: "client",
   });
-  const [otp, setOtp] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  // useEffect ဖြင့် reCAPTCHA ကို တစ်ကြိမ်တည်း သေချာချိတ်ဆက်ရန်
-  useEffect(() => {
-    if (!window.recaptchaVerifier && auth) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: (response) => {
-            // reCAPTCHA solved successfully
-          },
-          "expired-callback": () => {
-            if (window.recaptchaVerifier) {
-              try {
-                window.recaptchaVerifier.clear();
-              } catch (e) {}
-              window.recaptchaVerifier = null;
-            }
-          },
-        },
-      );
-    }
-
-    return () => {
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {}
-        window.recaptchaVerifier = null;
-      }
-    };
-  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSendOtp = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const appVerifier = window.recaptchaVerifier;
-      if (!appVerifier) {
-        throw new Error("reCAPTCHA not initialized. Please refresh the page.");
-      }
-
-      let rawPhone = formData.phone.trim();
-      if (rawPhone.startsWith("0")) {
-        rawPhone = rawPhone.substring(1);
-      }
-      const formattedPhoneNumber = rawPhone.startsWith("+")
-        ? rawPhone
-        : `+95${rawPhone}`;
-
-      const confirmation = await signInWithPhoneNumber(
+      // 1. Firebase Auth တွင် Email/Password ဖြင့် အကောင့်ဖန်တီးခြင်း
+      const userCredential = await createUserWithEmailAndPassword(
         auth,
-        formattedPhoneNumber,
-        appVerifier,
+        formData.email,
+        formData.password,
       );
-      setConfirmationResult(confirmation);
-      setStep(2);
-    } catch (err) {
-      console.error("OTP send error:", err);
-      setError(
-        "OTP ပို့၍မရပါ။ reCAPTCHA Timeout ဖြစ်သွားပါသည် သို့မဟုတ် Request များလွန်းနေပါသည်။ Page ကို Refresh လုပ်ပြီး ခဏစောင့်ကာ ပြန်စမ်းပါ။",
-      );
+      const firebaseUser = userCredential.user;
 
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {}
-        window.recaptchaVerifier = null;
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyAndRegister = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const result = await confirmationResult.confirm(otp);
-      const firebaseUser = result.user;
-
+      // 2. Backend သို့ အချက်အလက်များ ပို့၍ Database တွင် သိမ်းဆည်းခြင်း
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: {
@@ -140,28 +67,24 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
         );
       }
     } catch (err) {
-      console.error("Verification error:", err);
-      setError(
-        "ထည့်သွင်းလိုက်သော OTP ကုဒ် မမှန်ကန်ပါ သို့မဟုတ် ဆာဗာချိတ်ဆက်၍ မရပါ။",
-      );
+      console.error("Registration error:", err);
+      setError(err.message || "အကောင့်ဖွင့်ရာတွင် အမှားအယွင်း ရှိI.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-slate-900 text-slate-100 p-6 md:p-8 rounded-2xl shadow-xl max-w-xl w-full mx-auto border border-slate-800 max-h-[85vh] overflow-y-auto custom-scrollbar relative">
+    <div className="bg-slate-900 text-slate-100 p-6 md:p-8 rounded-2xl shadow-xl max-w-xl w-full mx-auto border border-slate-800">
       <h2 className="text-2xl font-bold mb-1 text-center text-white">
         အကောင့်အသစ်ဖွင့်ရန်
       </h2>
       <p className="text-xs md:text-sm text-slate-400 text-center mb-6">
-        ဖုန်းနံပါတ်ဖြင့် အလွယ်တကူ အကောင့်ဖွင့်ပြီး{" "}
-        <span className="text-emerald-400 font-bold">Free 100 Coins</span>{" "}
-        ရယူလိုက်ပါ။
+        အချက်အလက်များဖြည့်၍ အလွယ်တကူ အကောင့်ဖွင့်လိုက်ပါ။
       </p>
 
       {successMessage && (
-        <div className="mb-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl text-center text-sm font-medium animate-pulse">
+        <div className="mb-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl text-center text-sm font-medium">
           {successMessage}
         </div>
       )}
@@ -172,142 +95,93 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
         </div>
       )}
 
-      <div id="recaptcha-container"></div>
-
-      {step === 1 ? (
-        <form onSubmit={handleSendOtp} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-slate-300 mb-1">နာမည်</label>
-              <input
-                type="text"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                placeholder="သင့်နာမည်ထည့်ပါ"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-300 mb-1">
-                ဖုန်းနံပါတ်
-              </label>
-              <input
-                type="text"
-                name="phone"
-                required
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                placeholder="09XXXXXXXXX"
-              />
-            </div>
-          </div>
-
+      <form onSubmit={handleRegister} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-slate-300 mb-1">
-              အီးမေးလ် (Email)
-            </label>
+            <label className="block text-xs text-slate-300 mb-1">နာမည်</label>
             <input
-              type="email"
-              name="email"
+              type="text"
+              name="name"
               required
-              value={formData.email}
+              value={formData.name}
               onChange={handleChange}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-              placeholder="example@gmail.com"
+              placeholder="သင့်နာမည်ထည့်ပါ"
             />
           </div>
-
           <div>
             <label className="block text-xs text-slate-300 mb-1">
-              စကားဝှက် (Password)
-            </label>
-            <input
-              type="password"
-              name="password"
-              required
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-300 mb-1">
-              အကောင့်အမျိုးအစား (Role)
-            </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-medium"
-            >
-              <option value="client">
-                🏠 အိမ်ရှာသူ (Client - ပို့စ်ကြည့်ရန်နှင့် ဆက်သွယ်ရန်)
-              </option>
-              <option value="agent">
-                🤝 အိမ်ခြံမြေ အကျိုးဆောင် (Agent - ပို့စ်တင်ရန်)
-              </option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition shadow-lg mt-2 text-sm"
-          >
-            {loading ? "OTP ပို့နေသည်..." : "OTP ကုဒ်ရယူရန် (Send OTP)"}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleVerifyAndRegister} className="space-y-4">
-          <div>
-            <label className="block text-xs text-slate-300 mb-1">
-              SMS ဖြင့် ရောက်လာသော OTP ကုဒ် (၆ လုံး)
+              ဖုန်းနံပါတ်
             </label>
             <input
               type="text"
+              name="phone"
               required
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 tracking-widest text-center text-lg font-bold"
-              placeholder="123456"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+              placeholder="09XXXXXXXXX"
             />
-            <p className="text-xs text-slate-400 mt-2 text-center">
-              (Test နံပါတ်သုံးထားလျှင်{" "}
-              <span className="text-emerald-400 font-bold">123456</span> ကို
-              ထည့်ပါ)
-            </p>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition shadow-lg mt-2 text-sm"
-          >
-            {loading ? "အတည်ပြုနေသည်..." : "အတည်ပြုပြီး အကောင့်ဖွင့်မည်"}
-          </button>
+        <div>
+          <label className="block text-xs text-slate-300 mb-1">
+            အီးမေးလ် (Email)
+          </label>
+          <input
+            type="email"
+            name="email"
+            required
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+            placeholder="example@gmail.com"
+          />
+        </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setStep(1);
-              if (window.recaptchaVerifier) {
-                try {
-                  window.recaptchaVerifier.clear();
-                } catch (e) {}
-                window.recaptchaVerifier = null;
-              }
-            }}
-            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 rounded-xl transition text-xs"
+        <div>
+          <label className="block text-xs text-slate-300 mb-1">
+            စကားဝှက် (Password)
+          </label>
+          <input
+            type="password"
+            name="password"
+            required
+            value={formData.password}
+            onChange={handleChange}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+            placeholder="••••••••"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-300 mb-1">
+            အကောင့်အမျိုးအစား (Role)
+          </label>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-medium"
           >
-            ← ဖုန်းနံပါတ် ပြန်ပြင်ရန်
-          </button>
-        </form>
-      )}
+            <option value="client">
+              🏠 အိမ်ရှာသူ (Client - ပို့စ်ကြည့်ရန်နှင့် ဆက်သွယ်ရန်)
+            </option>
+            <option value="agent">
+              🤝 အိမ်ခြံမြေ အကျိုးဆောင် (Agent - ပို့စ်တင်ရန်)
+            </option>
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition shadow-lg mt-2 text-sm"
+        >
+          {loading ? "အကောင့်ဖွင့်နေသည်..." : "အကောင့်ဖွင့်မည် (Register)"}
+        </button>
+      </form>
 
       <div className="text-center mt-5 pt-3 border-t border-slate-800 text-sm text-slate-400">
         အကောင့်ရှိပြီးသားလား?{" "}
