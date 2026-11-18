@@ -21,13 +21,30 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const formatPhoneNumber = (inputPhone) => {
+    let cleaned = inputPhone.trim().replace(/[^0-9+]/g, "");
+
+    if (cleaned.startsWith("+95")) {
+      return cleaned;
+    }
+    if (cleaned.startsWith("09")) {
+      return "+95" + cleaned.substring(1);
+    }
+    if (cleaned.startsWith("9")) {
+      return "+95" + cleaned;
+    }
+    return "+95" + cleaned;
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (loading) return; // Prevent multiple rapid clicks
     setLoading(true);
     setError("");
 
     try {
-      // 1. Firebase Auth တွင် Email/Password ဖြင့် အကောင့်ဖန်တီးခြင်း
+      const formattedPhone = formatPhoneNumber(formData.phone);
+
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
@@ -35,7 +52,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
       );
       const firebaseUser = userCredential.user;
 
-      // 2. Backend သို့ အချက်အလက်များ ပို့၍ Database တွင် သိမ်းဆည်းခြင်း
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: {
@@ -45,7 +61,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          phone: formData.phone,
+          phone: formattedPhone,
           role: formData.role,
           firebaseUid: firebaseUser.uid,
         }),
@@ -68,7 +84,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
       }
     } catch (err) {
       console.error("Registration error:", err);
-      setError(err.message || "အကောင့်ဖွင့်ရာတွင် အမှားအယွင်း ရှိI.");
+      setError(err.message || "အကောင့်ဖွင့်ရာတွင် အမှားအယွင်း ရှိပါသည်။");
     } finally {
       setLoading(false);
     }
@@ -103,6 +119,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
               type="text"
               name="name"
               required
+              maxLength={50}
               value={formData.name}
               onChange={handleChange}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
@@ -111,16 +128,17 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
           </div>
           <div>
             <label className="block text-xs text-slate-300 mb-1">
-              ဖုန်းနံပါတ်
+              ဖုန်းနံပါတ် (ဥပမာ - 09XXXXXXXXX)
             </label>
             <input
               type="text"
               name="phone"
               required
+              maxLength={15}
               value={formData.phone}
               onChange={handleChange}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-              placeholder="09XXXXXXXXX"
+              placeholder="09784970257"
             />
           </div>
         </div>
@@ -177,7 +195,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition shadow-lg mt-2 text-sm"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition shadow-lg mt-2 text-sm disabled:opacity-50"
         >
           {loading ? "အကောင့်ဖွင့်နေသည်..." : "အကောင့်ဖွင့်မည် (Register)"}
         </button>
