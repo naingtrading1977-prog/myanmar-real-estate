@@ -881,9 +881,9 @@ const AdminDashboard = () => {
       {/* Property Edit Modal */}
       {editingProperty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100">
+          <div className="bg-white p-6 rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <h3 className="text-slate-800 font-bold text-base mb-4">
-              ✏️ Property အချက်အလက် ပြင်ဆင်ရန်
+              ✏️ Property အချက်အလက် ပြင်ဆင်ရန် (အသေးစိတ်)
             </h3>
             <form onSubmit={handleUpdatePropertyDetails} className="space-y-4">
               <div>
@@ -897,23 +897,54 @@ const AdminDashboard = () => {
                     setPropertyForm({ ...propertyForm, title: e.target.value })
                   }
                   required
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-800"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  ဈေးနှုန်း (သိန်း)
-                </label>
-                <input
-                  type="text"
-                  value={propertyForm.price}
-                  onChange={(e) =>
-                    setPropertyForm({ ...propertyForm, price: e.target.value })
-                  }
-                  required
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    ဈေးနှုန်း (သိန်း)
+                  </label>
+                  <input
+                    type="text"
+                    value={propertyForm.price}
+                    onChange={(e) =>
+                      setPropertyForm({
+                        ...propertyForm,
+                        price: e.target.value,
+                      })
+                    }
+                    required
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    အိမ်ခြံမြေ အမျိုးအစား (Type)
+                  </label>
+                  {/* Dropdown အဖြစ် ပြောင်းလဲထားပါသည် */}
+                  <select
+                    value={propertyForm.propertyType || "Apartment"}
+                    onChange={(e) =>
+                      setPropertyForm({
+                        ...propertyForm,
+                        propertyType: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-800 font-medium"
+                  >
+                    <option value="Apartment">Apartment (တိုက်ခန်း)</option>
+                    <option value="Condo">Condo (ကွန်ဒို)</option>
+                    <option value="House">House (အိမ်)</option>
+                    <option value="Land">Land (ခြံမြေ)</option>
+                    <option value="Commercial">
+                      Commercial (ဆိုင်ခန်း/ရုံးခန်း)
+                    </option>
+                  </select>
+                </div>
               </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   အခြေအနေ
@@ -923,7 +954,7 @@ const AdminDashboard = () => {
                   onChange={(e) =>
                     setPropertyForm({ ...propertyForm, status: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-800"
                 >
                   <option value="Available">Available (ပြသရန်)</option>
                   <option value="Sold">Sold (အရောင်းပြီး)</option>
@@ -931,6 +962,25 @@ const AdminDashboard = () => {
                   <option value="Hidden">Hidden (ဝှက်ထားရန်)</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  အသေးစိတ် ဖော်ပြချက် (Description)
+                </label>
+                <textarea
+                  rows="3"
+                  value={propertyForm.description || ""}
+                  onChange={(e) =>
+                    setPropertyForm({
+                      ...propertyForm,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="အိမ်အကြောင်းအရာ အသေးစိတ်..."
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-800"
+                />
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
