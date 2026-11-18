@@ -24,7 +24,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // ၁။ reCAPTCHA ဂျင်နရေတာ ပြုလုပ်ခြင်း
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
@@ -38,7 +37,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     }
   };
 
-  // ၂။ ဖုန်းနံပါတ်သို့ OTP ပို့ခြင်း
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -78,7 +76,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     }
   };
 
-  // ၃။ OTP စစ်ဆေးပြီး Backend ဆီသို့ အကောင့်အချက်အလက် ပို့ခြင်း
   const handleVerifyAndRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -106,13 +103,12 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
       const data = await response.json();
 
       if (response.ok) {
-        // ✨ Success Message လေးပြပြီး alert() ကို လုံးဝ ဖြုတ်ထားပါပြီ
         setSuccessMessage(
           "အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။ ကျေးဇူးပြု၍ Login ဝင်ပါ။",
         );
         setTimeout(() => {
           if (onSignupSuccess) onSignupSuccess(data);
-          else if (switchToLogin) switchToLogin(); // အောင်မြင်ပါက Login မျက်နှာပြင်သို့ အလိုအလျောက် သို့မဟုတ် callback သို့ သွားရန်
+          else if (switchToLogin) switchToLogin();
         }, 1500);
       } else {
         setError(
@@ -140,7 +136,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
         ရယူလိုက်ပါ။
       </p>
 
-      {/* Success Message Box */}
       {successMessage && (
         <div className="mb-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl text-center text-sm font-medium animate-pulse">
           {successMessage}
@@ -153,7 +148,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
         </div>
       )}
 
-      {/* reCAPTCHA container */}
       <div id="recaptcha-container"></div>
 
       {step === 1 ? (

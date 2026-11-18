@@ -119,10 +119,8 @@ export default function AuthModal({ isOpen, onClose }) {
           </div>
         ) : (
           <SignupForm
-            onSignupSuccess={(data) => {
-              alert(
-                "အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။ ကျေးဇူးပြု၍ Login ဝင်ပါ။",
-              );
+            onSignupSuccess={() => {
+              // ✨ alert ကြီးကို ဖြုတ်ပြီး Login မျက်နှာပြင်သို့ ချောမွေ့စွာ ပြောင်းလဲစေရန်
               setIsLoginView(true);
             }}
             switchToLogin={() => setIsLoginView(true)}
