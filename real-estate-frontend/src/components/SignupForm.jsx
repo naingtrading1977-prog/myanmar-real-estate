@@ -25,13 +25,26 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
   };
 
   const setupRecaptcha = () => {
+    // DOM ထဲမှာ container သေချာရှိမရှိ အရင်စစ်ပါ
+    const container = document.getElementById("recaptcha-container");
+    if (!container) return;
+
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         "recaptcha-container",
         {
-          size: "invisible",
-          callback: () => {},
+          size: "invisible", // သို့မဟုတ် 'normal' (Invisible reCAPTCHA မှာ error တက်နေရင် 'normal' ပြောင်းစမ်းနိုင်ပါတယ်)
+          callback: (response) => {
+            // reCAPTCHA solved successfully
+          },
+          "expired-callback": () => {
+            // Token expired, clear verifier
+            if (window.recaptchaVerifier) {
+              window.recaptchaVerifier.clear();
+              window.recaptchaVerifier = null;
+            }
+          },
         },
       );
     }
