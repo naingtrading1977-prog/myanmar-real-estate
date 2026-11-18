@@ -8,7 +8,7 @@ const Footer = ({ onOpenListings, onOpenAbout }) => {
             🏠 <span className="text-emerald-500">Win Win Aung</span>
           </h3>
           <p className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">
-            ( အိမ်ခြံမြေ အကျိုးဆောင် )
+            ( အိမ်ခြံမြေ အကျိုးဆောင် အထောက်ကူပြု Platform )
           </p>
           <p className="text-slate-400 text-sm leading-relaxed">
             ရန်ကုန်မြို့နှင့် အခြားမြို့နယ်များရှိ အကောင်းဆုံး အိမ်ခြံမြေ၊
