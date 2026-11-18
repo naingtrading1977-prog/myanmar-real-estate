@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { auth } from "../firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 
@@ -20,34 +20,41 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const setupRecaptcha = () => {
-    // DOM ထဲမှာ container သေချာရှိမရှိ အရင်စစ်ပါ
-    const container = document.getElementById("recaptcha-container");
-    if (!container) return;
-
-    if (!window.recaptchaVerifier) {
+  // useEffect ဖြင့် reCAPTCHA ကို တစ်ကြိမ်တည်း သေချာချိတ်ဆက်ရန်
+  useEffect(() => {
+    if (!window.recaptchaVerifier && auth) {
       window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         "recaptcha-container",
         {
-          size: "invisible", // သို့မဟုတ် 'normal' (Invisible reCAPTCHA မှာ error တက်နေရင် 'normal' ပြောင်းစမ်းနိုင်ပါတယ်)
+          size: "invisible",
           callback: (response) => {
             // reCAPTCHA solved successfully
           },
           "expired-callback": () => {
-            // Token expired, clear verifier
             if (window.recaptchaVerifier) {
-              window.recaptchaVerifier.clear();
+              try {
+                window.recaptchaVerifier.clear();
+              } catch (e) {}
               window.recaptchaVerifier = null;
             }
           },
         },
       );
     }
+
+    return () => {
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {}
+        window.recaptchaVerifier = null;
+      }
+    };
+  }, []);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSendOtp = async (e) => {
@@ -56,8 +63,10 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     setError("");
 
     try {
-      setupRecaptcha();
       const appVerifier = window.recaptchaVerifier;
+      if (!appVerifier) {
+        throw new Error("reCAPTCHA not initialized. Please refresh the page.");
+      }
 
       let rawPhone = formData.phone.trim();
       if (rawPhone.startsWith("0")) {
@@ -77,11 +86,13 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     } catch (err) {
       console.error("OTP send error:", err);
       setError(
-        "OTP ပို့၍မရပါ။ ဖုန်းနံပါတ်ကို ပြန်စစ်ပါ။ သို့မဟုတ် Page ကို Refresh လုပ်ပါ။",
+        "OTP ပို့၍မရပါ။ reCAPTCHA Timeout ဖြစ်သွားပါသည် သို့မဟုတ် Request များလွန်းနေပါသည်။ Page ကို Refresh လုပ်ပြီး ခဏစောင့်ကာ ပြန်စမ်းပါ။",
       );
 
       if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {}
         window.recaptchaVerifier = null;
       }
     } finally {
@@ -285,7 +296,9 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
             onClick={() => {
               setStep(1);
               if (window.recaptchaVerifier) {
-                window.recaptchaVerifier.clear();
+                try {
+                  window.recaptchaVerifier.clear();
+                } catch (e) {}
                 window.recaptchaVerifier = null;
               }
             }}
