@@ -8,7 +8,7 @@ const initDB = async () => {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS postgis;`);
     console.log("✔ PostGIS extension ready.");
 
-    // 2. Users Table ဖန်တီးခြင်း (Coins, Subscription နှင့် Payment Proof များပါဝင်သည်)
+    // 2. Users Table ဖန်တီးခြင်း (Coins, Subscription, Payment Proof နှင့် is_approved များပါဝင်သည်)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -20,8 +20,15 @@ const initDB = async () => {
         coins INTEGER DEFAULT 100,
         payment_proof TEXT,
         subscription_status VARCHAR(50) DEFAULT 'inactive',
+        is_approved BOOLEAN DEFAULT true,
         created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    // ရှိပြီးသား users table မှာ is_approved မရှိသေးပါက ထည့်သွင်းခြင်း
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT true;
     `);
     console.log("✔ 'users' table is ready.");
 
