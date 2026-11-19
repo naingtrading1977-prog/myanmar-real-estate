@@ -45,6 +45,14 @@ exports.createProperty = async (req, res) => {
   const owner_id = req.user ? req.user.id : null;
   const UPLOAD_POINTS_REQUIRED = 30; // ပို့စ်တင်ခ ၃၀ မှတ်
 
+  const cleanAreaSqft =
+    area_sqft !== undefined &&
+    area_sqft !== null &&
+    String(area_sqft).trim() !== "" &&
+    !Number.isNaN(parseFloat(area_sqft))
+      ? parseFloat(area_sqft)
+      : null;
+
   if (!owner_id) {
     return res.status(401).json({ success: false, error: "Unauthorized user" });
   }
@@ -68,8 +76,21 @@ exports.createProperty = async (req, res) => {
       });
     }
 
-    const parsedLng = longitude ? parseFloat(longitude) : null;
-    const parsedLat = latitude ? parseFloat(latitude) : null;
+    const parsedLng =
+      longitude !== undefined &&
+      longitude !== null &&
+      String(longitude).trim() !== "" &&
+      !Number.isNaN(parseFloat(longitude))
+        ? parseFloat(longitude)
+        : null;
+
+    const parsedLat =
+      latitude !== undefined &&
+      latitude !== null &&
+      String(latitude).trim() !== "" &&
+      !Number.isNaN(parseFloat(latitude))
+        ? parseFloat(latitude)
+        : null;
 
     // Database Transaction စတင်မည်
     await pool.query("BEGIN");
@@ -96,7 +117,7 @@ exports.createProperty = async (req, res) => {
       listing_type || "Sale",
       status || (listing_type === "Rent" ? "For Rent" : "For Sale"),
       price || 0,
-      area_sqft || null,
+      cleanAreaSqft, // 👈 ဒီနေရာမှာ cleanAreaSqft ပြောင်းထည့်ပေးပါ
       address || null,
       township || null,
       city || "Yangon",

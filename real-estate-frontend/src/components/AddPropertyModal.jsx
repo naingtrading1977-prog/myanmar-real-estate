@@ -1,24 +1,33 @@
 import { useState, useEffect } from "react";
 import API from "../api/axios";
-import { useSelector } from "react-redux"; // 👈 Redux မှ user အချက်အလက်ယူရန်
+import { useSelector } from "react-redux";
 import { createProperty } from "../api/propertyApi";
 import CustomModal from "./CustomModal";
+import { calculateAreaFromInput } from "../utils/propertyHelpers";
+
+const INITIAL_BROKER_FORM = {
+  facing: "မြောက်အလှည့်",
+  utilities: "ရေမီးစုံ",
+  buildingDesc: "နှစ်ထပ်ခွဲ RC တိုက်သစ်",
+  masterRooms: "၃ ခန်း",
+  singleRooms: "",
+  extraFeatures:
+    "ရေပူ/ရေအေး ရ\nအခန်းအားလုံး ပြင်ဆင်ပြီး\nခြံထဲ ကားထားလို့ရ\nAccount to Account ရ",
+  note: "ညှိနှိုင်း",
+};
 
 const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
-  const { user } = useSelector((state) => state.auth); // 👈 Login ဝင်ထားသော user ကို ခေါ်ယူခြင်း
-
-  // 🛠️ LocalStorage ထဲမှ Coins အသစ်ကို ပါ တစ်ခါတည်း ချိန်ကိုက်ဖတ်ရှုရန်
+  const { user } = useSelector((state) => state.auth);
   const [userCoins, setUserCoins] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
       const fetchLatestUserData = async () => {
         try {
-          const response = await API.get("/auth/me"); // 👈 Backend တွင် အသစ်ရေးခဲ့သော /me endpoint
+          const response = await API.get("/auth/me");
           if (response.data.success && response.data.user) {
             setUserCoins(response.data.user.coins ?? 0);
 
-            // LocalStorage ထဲက user အချက်အလက်ကိုပါ ချိန်ကိုက် update လုပ်လိုပါက
             const localUser = JSON.parse(localStorage.getItem("user") || "{}");
             localUser.coins = response.data.user.coins;
             localStorage.setItem("user", JSON.stringify(localUser));
@@ -38,27 +47,34 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
     }
   }, [isOpen, user]);
 
-  const requiredCoins = 30; // ပို့စ်တင်ရန် ကျသင့်မည့် Coins
+  const requiredCoins = 30;
   const hasEnoughCoins = userCoins >= requiredCoins;
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     price: "",
+    area_sqft: "",
+    dimensions_label: "",
     type: "Apartment",
-    listing_type: "Sale", // 🏷️ အရောင်း (Sale) သို့မဟုတ် အငှား (Rent)
-    township: "", // 📍 တည်နေရာ (Township) အတွက် State အသစ်ထည့်သွင်းခြင်း
+    listing_type: "Sale",
+    township: "",
+    address: "",
     lat: "",
     lng: "",
     contact_phone: "",
-    ownership_document: "ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား", // 📄 Default ပိုင်ဆိုင်မှု စာရွက်စာတမ်း အမျိုးအစား
+    ownership_document: "ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား",
     building_status: "BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး",
   });
+
+  // 📝 Broker Form Helper States
+  const [isBrokerBuilderOpen, setIsBrokerBuilderOpen] = useState(false);
+  const [brokerForm, setBrokerForm] = useState(INITIAL_BROKER_FORM);
+
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 🌟 Pro Modern Custom Modal State
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
     title: "",
@@ -72,11 +88,78 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // 📐 Tab ထွက်သွားချိန် (onBlur) တွင် Auto Square တွက်ပေးမည့် Function
+  const handleAreaBlur = () => {
+    const rawValue = formData.dimensions_label || formData.area_sqft;
+    if (!rawValue) return;
+
+    const { areaSqft, dimensionsLabel } = calculateAreaFromInput(rawValue);
+
+    setFormData((prev) => ({
+      ...prev,
+      area_sqft: areaSqft || prev.area_sqft,
+      dimensions_label: dimensionsLabel || prev.dimensions_label,
+    }));
+  };
+
+  const handleBrokerFieldChange = (e) => {
+    setBrokerForm({ ...brokerForm, [e.target.name]: e.target.value });
+  };
+
+  const handleApplyBrokerForm = () => {
+    const detailBullets = [];
+
+    if (brokerForm.buildingDesc.trim()) {
+      detailBullets.push(`• ${brokerForm.buildingDesc.trim()}`);
+    }
+    if (brokerForm.masterRooms.trim()) {
+      detailBullets.push(`• Master Bedroom – ${brokerForm.masterRooms.trim()}`);
+    }
+    if (brokerForm.singleRooms.trim()) {
+      detailBullets.push(`• Single Bedroom – ${brokerForm.singleRooms.trim()}`);
+    }
+    if (brokerForm.extraFeatures.trim()) {
+      brokerForm.extraFeatures
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .forEach((line) => {
+          detailBullets.push(line.startsWith("•") ? line : `• ${line}`);
+        });
+    }
+
+    const parts = [];
+    if (formData.dimensions_label.trim()) {
+      parts.push(`📐 အကျယ် – ${formData.dimensions_label.trim()}`);
+    }
+    if (brokerForm.facing.trim()) {
+      parts.push(`🧭 ${brokerForm.facing.trim()}`);
+    }
+    if (brokerForm.utilities.trim()) {
+      parts.push(`💧⚡ ${brokerForm.utilities.trim()}`);
+    }
+    if (detailBullets.length > 0) {
+      parts.push(`\n🏡 အိမ်အချက်အလက်\n${detailBullets.join("\n")}`);
+    }
+    if (brokerForm.note.trim()) {
+      parts.push(`\n💬 မှတ်ချက် – ${brokerForm.note.trim()}`);
+    }
+
+    const builtText = parts.join("\n");
+
+    setFormData((prev) => ({
+      ...prev,
+      description: prev.description
+        ? `${prev.description.trim()}\n\n${builtText}`
+        : builtText,
+    }));
+    setIsBrokerBuilderOpen(false);
+  };
+
   const handleFileChange = (e) => {
     setFiles(e.target.files);
   };
 
-  // 📍 GPS Location အလိုအလျောက် ယူပေးမည့် Function (Custom Modal ဖြင့် ချိတ်ဆက်ထားသည်)
   const handleGetLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -117,7 +200,6 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 🪙 Coins မလုံလောက်ပါက တားဆီးရန်
     if (!hasEnoughCoins) {
       setError(
         "သင့်တွင် ကြော်ငြာတင်ရန် Coins မလုံလောက်ပါ။ (အနည်းဆုံး 30 Coins လိုအပ်ပါသည်။)",
@@ -129,12 +211,25 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
     setError(null);
 
     try {
+      let finalDescription = formData.description.trim();
+      const dimText = formData.dimensions_label.trim();
+      if (dimText && !finalDescription.includes(dimText)) {
+        const dimLine = `📐 အကျယ် – ${dimText}`;
+        finalDescription = finalDescription
+          ? `${dimLine}\n${finalDescription}`
+          : dimLine;
+      }
+
       const uploadData = new FormData();
       uploadData.append("title", formData.title);
-      uploadData.append("description", formData.description);
+      uploadData.append("description", finalDescription);
       uploadData.append("price", formData.price);
 
-      // 🛠️ Backend Database Schema နှင့် ချိန်ကိုက်ခြင်း
+      const numericArea = parseFloat(String(formData.area_sqft).trim());
+      if (!Number.isNaN(numericArea) && numericArea > 0) {
+        uploadData.append("area_sqft", String(numericArea));
+      }
+
       uploadData.append("property_type", formData.type);
       uploadData.append("listing_type", formData.listing_type);
       uploadData.append(
@@ -143,6 +238,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
       );
 
       uploadData.append("township", formData.township || "Bahan");
+      uploadData.append("address", formData.address || formData.township || "");
       uploadData.append("city", "Yangon");
       uploadData.append("latitude", formData.lat);
       uploadData.append("longitude", formData.lng);
@@ -191,7 +287,6 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
             Post New Property
           </h2>
 
-          {/* 🪙 Coins Balance & Cost Info Box */}
           <div className="bg-slate-900 text-slate-100 p-3 rounded-xl mb-4 flex items-center justify-between text-xs shadow-inner border border-slate-800">
             <div>
               <span className="text-slate-400">သင့်လက်ကျန် Coins: </span>
@@ -253,7 +348,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 required
                 value={formData.title}
                 onChange={handleChange}
-                placeholder="e.g. Yankin Luxury Condo"
+                placeholder="ဥပမာ - နှစ်ထပ် RC တိုက်သစ် အရောင်း"
                 className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
@@ -296,10 +391,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Price (
-                  {formData.listing_type === "Rent"
-                    ? "တစ်လ (ကျပ်/သိန်း)"
-                    : "သိန်း"}
-                  )
+                  {formData.listing_type === "Rent" ? "တစ်လ (သိန်း)" : "သိန်း"})
                 </label>
                 <input
                   type="number"
@@ -308,14 +400,50 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                   value={formData.price}
                   onChange={handleChange}
                   placeholder={
-                    formData.listing_type === "Rent" ? "e.g. 5" : "e.g. 2500"
+                    formData.listing_type === "Rent"
+                      ? "ဥပမာ - 5"
+                      : "ဥပမာ - 7800"
                   }
                   className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Township / Location (တည်နေရာ/မြို့နယ်)
+                  📐 အကျယ် (ဥပမာ - 12 x 55 → Tab)
+                </label>
+                <input
+                  type="text"
+                  name="dimensions_label"
+                  value={formData.dimensions_label}
+                  onChange={handleChange}
+                  onBlur={handleAreaBlur}
+                  placeholder="12 x 55 သို့မဟုတ် 12.5 x 55"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                📏 စတုရန်းပေ (Auto Square / Sq.ft)
+              </label>
+              <input
+                type="number"
+                step="any"
+                name="area_sqft"
+                value={formData.area_sqft}
+                onChange={handleChange}
+                onBlur={handleAreaBlur}
+                placeholder="Tab ထွက်ပါက အလိုအလျောက် တွက်ပေးမည်"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 bg-slate-50 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Township / Location (မြို့နယ်)
                 </label>
                 <input
                   type="text"
@@ -323,13 +451,25 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                   required
                   value={formData.township}
                   onChange={handleChange}
-                  placeholder="ဥပမာ - ဗဟန်း"
+                  placeholder="ဥပမာ - အရှေ့ဒဂုံ"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  📍 လမ်း / ရပ်ကွက် လိပ်စာ
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="ဥပမာ - စံပယ်ဦး (၂) လမ်း၊ ၅၂ ရပ်ကွက်"
                   className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
-            {/* Lat & Lng with GPS Auto-Detect Button */}
             <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-700">
@@ -381,7 +521,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 required
                 value={formData.contact_phone}
                 onChange={handleChange}
-                placeholder="e.g. 09784970257"
+                placeholder="ဥပမာ - 09265388758"
                 className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
@@ -399,8 +539,8 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 <option value="ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား">
                   ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား
                 </option>
-                <option value="ပါမစ်မြေ (Permit Land) - လူနေထိုင်ခွင့်ပြီးသား">
-                  ပါမစ်မြေ (Permit Land) - လူနေထိုင်ခွင့်ပြီးသား
+                <option value="ပါမစ်မြေ – အရှုပ်အရှင်းကင်း၊ စည်ပင်စစ်ပြီး">
+                  ပါမစ်မြေ – အရှုပ်အရှင်းကင်း၊ စည်ပင်စစ်ပြီး
                 </option>
                 <option value="ဘိုးဘွားပိုင်မြေ (Freehold)">
                   ဘိုးဘွားပိုင်မြေ (Freehold)
@@ -418,7 +558,6 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
               </select>
             </div>
 
-            {/* Type က Apartment ဖြစ်မှသာ Building Status ကို ပြရန် */}
             {formData.type === "Apartment" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -450,16 +589,173 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Description (အသေးစိတ် ဖော်ပြချက်)
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Description (အိမ်အချက်အလက် / အသေးစိတ်)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsBrokerBuilderOpen((prev) => !prev)}
+                  className="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                >
+                  {isBrokerBuilderOpen
+                    ? "✕ Close Broker Form"
+                    : "📝 Broker Form"}
+                </button>
+              </div>
+
+              {isBrokerBuilderOpen && (
+                <div className="mb-2.5 p-3.5 rounded-xl bg-slate-50 border border-emerald-200 space-y-3 text-xs">
+                  <div className="font-bold text-slate-800">
+                    အိမ်အချက်အလက် Form ဖြည့်ရန် (လိုအပ်သလို ပြောင်းဖြည့်ပါ)
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-slate-600 mb-1">
+                        အလှည့်
+                      </label>
+                      <select
+                        name="facing"
+                        value={brokerForm.facing}
+                        onChange={handleBrokerFieldChange}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800"
+                      >
+                        <option value="မြောက်အလှည့်">မြောက်အလှည့်</option>
+                        <option value="တောင်အလှည့်">တောင်အလှည့်</option>
+                        <option value="အရှေ့အလှည့်">အရှေ့အလှည့်</option>
+                        <option value="အနောက်အလှည့်">အနောက်အလှည့်</option>
+                        <option value="အရှေ့မြောက်အလှည့်">
+                          အရှေ့မြောက်အလှည့်
+                        </option>
+                        <option value="အရှေ့တောင်အလှည့်">
+                          အရှေ့တောင်အလှည့်
+                        </option>
+                        <option value="အနောက်မြောက်အလှည့်">
+                          အနောက်မြောက်အလှည့်
+                        </option>
+                        <option value="အနောက်တောင်အလှည့်">
+                          အနောက်တောင်အလှည့်
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 mb-1">
+                        ရေမီး အခြေအနေ
+                      </label>
+                      <select
+                        name="utilities"
+                        value={brokerForm.utilities}
+                        onChange={handleBrokerFieldChange}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800"
+                      >
+                        <option value="ရေမီးစုံ">ရေမီးစုံ</option>
+                        <option value="မီတာပါ / ရေသန့်">မီတာပါ / ရေသန့်</option>
+                        <option value="အဝီစိတွင်း / မီတာပါ">
+                          အဝီစိတွင်း / မီတာပါ
+                        </option>
+                        <option value="မီတာလျှောက်ရန်">မီတာလျှောက်ရန်</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 mb-1">
+                      တိုက် / အိမ် အမျိုးအစား
+                    </label>
+                    <input
+                      type="text"
+                      name="buildingDesc"
+                      value={brokerForm.buildingDesc}
+                      onChange={handleBrokerFieldChange}
+                      placeholder="ဥပမာ - နှစ်ထပ်ခွဲ RC တိုက်သစ် / ၆ လွှာ"
+                      className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-slate-600 mb-1">
+                        Master Bedroom
+                      </label>
+                      <input
+                        type="text"
+                        name="masterRooms"
+                        value={brokerForm.masterRooms}
+                        onChange={handleBrokerFieldChange}
+                        placeholder="ဥပမာ - ၃ ခန်း (သို့) မပါ"
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 mb-1">
+                        Single Bedroom
+                      </label>
+                      <input
+                        type="text"
+                        name="singleRooms"
+                        value={brokerForm.singleRooms}
+                        onChange={handleBrokerFieldChange}
+                        placeholder="ဥပမာ - ၂ ခန်း"
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 mb-1">
+                      အခြား အချက်အလက်များ (တစ်ကြောင်းချင်း ရေးပါ)
+                    </label>
+                    <textarea
+                      name="extraFeatures"
+                      rows="3"
+                      value={brokerForm.extraFeatures}
+                      onChange={handleBrokerFieldChange}
+                      className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 mb-1">
+                      ဈေးနှုန်း / မှတ်ချက်
+                    </label>
+                    <input
+                      type="text"
+                      name="note"
+                      value={brokerForm.note}
+                      onChange={handleBrokerFieldChange}
+                      placeholder="ဥပမာ - ညှိနှိုင်း / ပိုင်ရှင်တိုက်ရိုက်"
+                      className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setBrokerForm(INITIAL_BROKER_FORM)}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium hover:bg-slate-100 cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyBrokerForm}
+                      className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                    >
+                      ✓ Apply to Description
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <textarea
                 name="description"
-                rows="3"
+                rows="6"
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="အသေးစိတ် ရေးသားရန်..."
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="အိမ်အချက်အလက်များ ရေးသားရန် (သို့မဟုတ် Broker Form နှိပ်၍ ဖြည့်ပါ)..."
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
               ></textarea>
             </div>
 
@@ -495,7 +791,6 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
         </div>
       </div>
 
-      {/* 🌟 Pro Modern Custom Modal Component */}
       <CustomModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}

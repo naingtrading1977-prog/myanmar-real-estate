@@ -14,16 +14,17 @@ const {
   uploadPropertyFiles,
   rateProperty,
   unlockPropertyContact,
-  incrementPropertyView, // 👁️ View တိုးပေးမည့် Controller (နာမည်တူပါက သုံးပါ)
+  incrementPropertyView, // 👁️ View တိုးပေးမည့် Controller
 } = require("../controllers/propertyController");
 
 // 👇 အထူး Routes များကို ဒိုင်နမစ် `/:id` ရဲ့ အပေါ်ဆုံးတွင် ထားရှိခြင်း
 router.get("/", getProperties);
 router.get("/nearby", getNearbyProperties);
 
-// 👁️ ဝင်ရောက်ကြည့်ရှုသူ (Views) တိုးပေးမည့် Route (Login မလိုဘဲ ဝင်ကြည့်တိုင်း တိုးရန် protect ဖြုတ်ထားသည်)
+// 👁️ ဝင်ရောက်ကြည့်ရှုသူ (Views) တိုးပေးမည့် Route
 router.put("/:id/view", incrementPropertyView);
 
+// 🔑 Post အသစ်တင်ရန် (Admin သို့မဟုတ် Approved Agent သာ ခွင့်ပြုမည်)
 router.post(
   "/",
   protect,
@@ -52,7 +53,6 @@ router.post(
         });
       }
 
-      // Role စစ်ဆေးပြီးပါက createProperty သို့ ဆက်ပို့မည်
       next();
     } catch (err) {
       console.error(err);
@@ -65,12 +65,20 @@ router.post(
 // 👇 ဒိုင်နမစ် Route `:id`
 router.get("/:id", getPropertyById);
 
-// 🔑 Post အသစ်တင်ရန် (protect ထည့်ထားသဖြင့် owner_id အလိုအလျောက် ဝင်ပါမည်)
-router.post("/", protect, upload.array("images"), createProperty);
-
-// 🔑 Edit နှင့် Delete လုပ်ရန်လည်း protect ထည့်ထားခြင်း
+// 🔑 Edit, Delete, Unlock & Rating Routes
 router.put("/:id", protect, upload.array("images"), updateProperty);
 router.delete("/:id", protect, deleteProperty);
 router.post("/:id/unlock", protect, unlockPropertyContact);
+if (typeof rateProperty === "function") {
+  router.post("/:id/rating", protect, rateProperty);
+}
+if (typeof uploadPropertyFiles === "function") {
+  router.post(
+    "/:id/files",
+    protect,
+    upload.array("files"),
+    uploadPropertyFiles,
+  );
+}
 
 module.exports = router;

@@ -7,9 +7,10 @@ import L from "leaflet";
 function MapResizeFix() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       map.invalidateSize();
     }, 200);
+    return () => clearTimeout(timer);
   }, [map]);
   return null;
 }
@@ -18,7 +19,8 @@ const PropertyMap = ({ properties = [], onSelectProperty }) => {
   const defaultPosition = [16.8409, 96.1735];
 
   const createCustomIcon = (property) => {
-    const isRent = property.listing_type === "Rent";
+    const isRent =
+      property.listing_type === "Rent" || property.status === "For Rent";
     const labelText = isRent ? "အငှား" : "အရောင်း";
 
     return L.divIcon({
@@ -65,11 +67,19 @@ const PropertyMap = ({ properties = [], onSelectProperty }) => {
         />
 
         {properties.map((property) => {
-          // Backend မှ latitude နဲ့ longitude ကို နံပါတ်အဖြစ် ပြောင်းလဲစစ်ဆေးခြင်း
-          const lat = parseFloat(property.latitude);
-          const lng = parseFloat(property.longitude);
+          const rawLat = property.latitude ?? property.lat;
+          const rawLng = property.longitude ?? property.lng;
+          const lat = parseFloat(rawLat);
+          const lng = parseFloat(rawLng);
 
-          return !isNaN(lat) && !isNaN(lng) ? (
+          if (Number.isNaN(lat) || Number.isNaN(lng)) {
+            return null;
+          }
+
+          const isRent =
+            property.listing_type === "Rent" || property.status === "For Rent";
+
+          return (
             <Marker
               key={property.id}
               position={[lat, lng]}
@@ -86,21 +96,18 @@ const PropertyMap = ({ properties = [], onSelectProperty }) => {
                 >
                   <span
                     className={`inline-block text-[10px] px-2 py-0.5 rounded font-semibold ${
-                      property.listing_type === "Rent"
+                      isRent
                         ? "bg-blue-100 text-blue-800"
                         : "bg-emerald-100 text-emerald-800"
                     }`}
                   >
-                    {property.listing_type === "Rent"
-                      ? "🏠 အငှား (Rent)"
-                      : "🏷 အရောင်း (Sale)"}
+                    {isRent ? "🏠 အငှား (Rent)" : "🏷 အရောင်း (Sale)"}
                   </span>
                   <h3 className="font-bold text-sm text-slate-800 line-clamp-1">
                     {property.title}
                   </h3>
                   <p className="text-xs font-bold text-emerald-600">
-                    {property.price} သိန်း{" "}
-                    {property.listing_type === "Rent" ? "/ လ" : ""}
+                    {property.price} သိန်း {isRent ? "/ လ" : ""}
                   </p>
 
                   <div className="w-full mt-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg text-center transition shadow-sm">
@@ -109,7 +116,7 @@ const PropertyMap = ({ properties = [], onSelectProperty }) => {
                 </div>
               </Popup>
             </Marker>
-          ) : null;
+          );
         })}
       </MapContainer>
     </div>

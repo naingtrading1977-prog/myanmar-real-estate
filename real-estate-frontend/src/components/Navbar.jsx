@@ -62,7 +62,7 @@ const Navbar = ({
         >
           <span>🏠</span> WIN WIN AUNG{" "}
           <span className="text-xs md:text-sm font-semibold text-slate-600 hidden sm:inline">
-            ( အိမ်ခြံမြေ အကျိုးတော်ဆောင် )
+            ( အိမ်ခြံမြေ အကျိုးတော်ဆောင် အထောက်ကူပြု Platform )
           </span>
         </Link>
 

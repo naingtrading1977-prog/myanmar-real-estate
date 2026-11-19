@@ -12,8 +12,8 @@ const PropertyDetailModal = ({
   const navigate = useNavigate();
   const [rating, setRating] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [copied, setCopied] = useState(false);
 
-  // 🌟 Pro Modern Custom Modal State
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
     title: "",
@@ -21,34 +21,42 @@ const PropertyDetailModal = ({
     type: "info",
   });
 
-  // 📞 Unlocked Contact & Address States
   const [unlockedPhone, setUnlockedPhone] = useState(null);
   const [unlockedAddress, setUnlockedAddress] = useState(null);
   const [unlocking, setUnlocking] = useState(false);
 
-  // 🔍 Lightbox Modal States
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
 
-  // 👁️ Modal ပွင့်လာသည်နှင့် View Count ကို 1 တိုးပေးမည့် function
   useEffect(() => {
-    if (isOpen && property && property.id) {
-      const incrementView = async () => {
-        try {
-          await API.put(`/properties/${property.id}/view`);
-          if (typeof onPropertyUpdated === "function") {
-            onPropertyUpdated();
-          }
-        } catch (err) {
-          console.error("Failed to increment view count:", err);
-        }
-      };
+    setUnlockedPhone(null);
+    setUnlockedAddress(null);
+    setCurrentImageIndex(0);
+    setCopied(false);
+    setRating(0);
+  }, [property?.id]);
 
-      incrementView();
-    }
+  useEffect(() => {
+    if (!isOpen || !property?.id) return;
+
+    let isMounted = true;
+    const incrementView = async () => {
+      try {
+        await API.put(`/properties/${property.id}/view`);
+        if (isMounted && typeof onPropertyUpdated === "function") {
+          onPropertyUpdated();
+        }
+      } catch (err) {
+        console.error("Failed to increment view count:", err);
+      }
+    };
+
+    incrementView();
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, property?.id]);
 
-  // ⏱️ Auto Slide Effect
   useEffect(() => {
     if (
       !isOpen ||
@@ -71,6 +79,82 @@ const PropertyDetailModal = ({
 
   const isRent =
     property.listing_type === "Rent" || property.status === "For Rent";
+
+  const propType = property.property_type || property.type || "Apartment";
+  const isApartment = propType === "Apartment";
+
+  const townText = property.township || "ရန်ကုန်";
+  const fullLocationText =
+    unlockedAddress || property.address || townText || "ရန်ကုန်မြို့";
+
+  const parsedArea =
+    property.area_sqft !== undefined &&
+    property.area_sqft !== null &&
+    property.area_sqft !== "" &&
+    !Number.isNaN(Number(property.area_sqft))
+      ? Number(property.area_sqft)
+      : null;
+
+  const areaText = parsedArea !== null ? `${parsedArea} sq.ft` : "";
+  const priceUnitText = isRent ? "သိန်း / လ" : "သိန်း";
+
+  const cleanDescription = (property.description || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+
+  const buildBrokerPostText = () => {
+    const lines = [
+      `📍 နေရာ – ${fullLocationText}${
+        property.township && !fullLocationText.includes(property.township)
+          ? `၊ ${property.township}`
+          : ""
+      }`,
+      `🏷️ အမျိုးအစား – ${propType} (${isRent ? "အငှား" : "အရောင်း"})`,
+    ];
+
+    if (areaText) {
+      lines.push(`📐 အကျယ် – ${areaText}`);
+    }
+
+    if (property.ownership_document) {
+      lines.push(`📄 စာရွက်စာတမ်း – ${property.ownership_document}`);
+    }
+
+    if (property.building_status && isApartment) {
+      lines.push(`🏢 အခြေအနေ – ${property.building_status}`);
+    }
+
+    if (cleanDescription) {
+      lines.push("", `🏡 အသေးစိတ်အချက်အလက်`, cleanDescription);
+    }
+
+    lines.push("", `💰 ဈေးနှုန်း – ${property.price} ${priceUnitText}`);
+
+    if (unlockedPhone) {
+      lines.push(`📞 ဆက်သွယ်ရန် – ${unlockedPhone}`);
+    }
+
+    return lines.join("\n");
+  };
+
+  const handleCopyPost = async () => {
+    const textToCopy = buildBrokerPostText();
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = textToCopy;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const nextImage = (e) => {
     e.stopPropagation();
@@ -109,7 +193,6 @@ const PropertyDetailModal = ({
     }
   };
 
-  // 🪙 Click လိုက်တာနဲ့ Token ရှိမရှိစစ်မည်၊ မရှိလျှင် Custom Modal ဖြင့် သတိပေးပြီး Login သို့ ပို့မည်
   const handleUnlockContact = async () => {
     const token = localStorage.getItem("token");
 
@@ -241,7 +324,7 @@ const PropertyDetailModal = ({
               </div>
             )}
 
-            <div className="absolute top-4 left-4">
+            <div className="absolute top-4 left-4 flex items-center gap-2">
               <span
                 className={`text-xs px-3.5 py-1.5 rounded-full font-bold shadow-lg tracking-wider ${
                   isRent
@@ -250,6 +333,9 @@ const PropertyDetailModal = ({
                 }`}
               >
                 {isRent ? "🏠 အငှား (For Rent)" : "🏷️ အရောင်း (For Sale)"}
+              </span>
+              <span className="bg-slate-900/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold backdrop-blur-sm">
+                {propType}
               </span>
             </div>
 
@@ -262,83 +348,138 @@ const PropertyDetailModal = ({
           </div>
 
           {/* Property Details Content */}
-          <div className="p-6 space-y-6">
-            <div className="flex justify-between items-start">
+          <div className="p-6 space-y-5">
+            <div className="flex justify-between items-start gap-3">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-900">
                   {property.title}
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
                   📍 မြို့နယ်:{" "}
-                  <span className="font-bold text-slate-700">
-                    {property.township || "ရန်ကုန်"}
-                  </span>{" "}
-                  | ပို့စ်အမှတ်: #{property.id}
+                  <span className="font-bold text-slate-700">{townText}</span> |
+                  ပို့စ်အမှတ်: #{property.id}
                 </p>
               </div>
-              <span
-                className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
-                  isRent
-                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                }`}
-              >
-                {isRent ? "Rent" : "Sale"}
-              </span>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopyPost}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition cursor-pointer"
+                >
+                  {copied ? "✅ Copied!" : "📋 Copy Post"}
+                </button>
+                <span
+                  className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
+                    isRent
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  }`}
+                >
+                  {isRent ? "Rent" : "Sale"}
+                </span>
+              </div>
             </div>
 
-            {/* Price Box */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 flex items-center justify-between">
+            {/* Price & Stats Box */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-400 font-medium uppercase">
-                  သတ်မှတ်ဈေးနှုန်း
+                  💰 ဈေးနှုန်း
                 </p>
                 <h3 className="text-emerald-600 font-extrabold text-2xl mt-0.5">
                   {property.price}{" "}
                   <span className="text-sm font-normal text-slate-600">
-                    {isRent ? "သိန်း / လ" : "သိန်း"}
+                    {priceUnitText}
                   </span>
                 </h3>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-slate-400 font-medium uppercase">
-                  ကြည့်ရှုသူ
+              <div className="text-right space-y-1">
+                <p className="text-xs font-bold text-slate-700">
+                  ⭐ {Number(property.average_rating || 0).toFixed(1)}{" "}
+                  <span className="text-slate-400 font-normal">
+                    ({property.total_ratings || 0})
+                  </span>
                 </p>
-                <p className="text-sm font-extrabold text-slate-700 mt-0.5">
-                  👀 {property.views || 0} ဦး
+                <p className="text-xs font-extrabold text-slate-700">
+                  👀 {property.views || 0} ဦးကြည့်
                 </p>
               </div>
             </div>
 
-            <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-              {property.description || "အသေးစိတ် ဖော်ပြချက် မရှိပါ။"}
-            </p>
+            {/* Key Highlights (Broker Format) */}
+            <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200/80 space-y-2.5 text-sm text-slate-800">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                အဓိက အချက်အလက်များ
+              </div>
 
-            {/* Specifications */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <span className="text-xs text-slate-400 block">
-                  အမျိုးအစား (Type)
-                </span>
-                <span className="font-bold text-slate-800">
-                  {property.property_type || property.type || "Apartment"}
-                </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                  <span className="text-xs text-slate-400 block">
+                    📍 နေရာ / မြို့နယ်
+                  </span>
+                  <span className="font-bold text-slate-800">
+                    {unlockedAddress || property.address
+                      ? `${unlockedAddress || property.address} (${townText})`
+                      : townText}
+                  </span>
+                </div>
+
+                {areaText && (
+                  <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                    <span className="text-xs text-slate-400 block">
+                      📐 အကျယ် (Area)
+                    </span>
+                    <span className="font-bold text-slate-800">{areaText}</span>
+                  </div>
+                )}
+
+                <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                  <span className="text-xs text-slate-400 block">
+                    🏷️ အမျိုးအစား
+                  </span>
+                  <span className="font-bold text-slate-800">
+                    {propType} — {isRent ? "အငှား" : "အရောင်း"}
+                  </span>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                  <span className="text-xs text-slate-400 block">
+                    📄 ပိုင်ဆိုင်မှု စာရွက်စာတမ်း
+                  </span>
+                  <span className="font-bold text-slate-800">
+                    {property.ownership_document || "ဂရန်"}
+                  </span>
+                </div>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <span className="text-xs text-slate-400 block">
-                  ပိုင်ဆိုင်မှု စာရွက်စာတမ်း
-                </span>
-                <span className="font-bold text-slate-800">
-                  {property.ownership_document || "ဂရန်"}
-                </span>
+
+              {property.building_status && isApartment && (
+                <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                  <span className="text-xs text-slate-400 block">
+                    🏢 အဆောက်အအုံ အခြေအနေ (BCC / လူနေထိုင်ခွင့်)
+                  </span>
+                  <span className="font-bold text-slate-800">
+                    {property.building_status}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Detailed Description */}
+            <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-200/70 space-y-1.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                🏡 အိမ်အချက်အလက် / အသေးစိတ် ဖော်ပြချက်
               </div>
+              <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line">
+                {cleanDescription || "အသေးစိတ် ဖော်ပြချက် မရှိပါ။"}
+              </p>
             </div>
 
             {/* 📞 Contact & Address Section */}
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 p-5 rounded-2xl space-y-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-emerald-900 text-sm flex items-center gap-1.5">
-                  <span>📞</span> အကြိုးဆောင် / ပိုင်ရှင် ဆက်သွယ်ရန်
+                  <span>📞</span> အကျိုးဆောင် / ပိုင်ရှင် ဆက်သွယ်ရန်
                   ဖုန်းနံပါတ်နှင့် လိပ်စာ
                 </h3>
               </div>
@@ -361,11 +502,7 @@ const PropertyDetailModal = ({
                       တိကျသည့် လိပ်စာ အပြည့်အစုံ
                     </p>
                     <p className="text-sm font-semibold text-slate-800">
-                      📍{" "}
-                      {unlockedAddress ||
-                        property.address ||
-                        property.township ||
-                        "ရန်ကုန်မြို့"}
+                      📍 {fullLocationText}
                     </p>
                   </div>
                   <div className="pt-2">
@@ -380,7 +517,7 @@ const PropertyDetailModal = ({
               ) : (
                 <div className="text-center py-2 space-y-2">
                   <p className="text-xs text-slate-500">
-                    အကြိုးဆောင်၏ ဆက်သွယ်ရန် ဖုန်းနံပါတ်နှင့် တိကျသည့် လိပ်စာကို
+                    အကျိုးဆောင်၏ ဆက်သွယ်ရန် ဖုန်းနံပါတ်နှင့် တိကျသည့် လိပ်စာကို
                     ကြည့်ရှုရန် အောက်ပါခလုတ်ကို နှိပ်ပါ။
                   </p>
                   <button
@@ -477,8 +614,6 @@ const PropertyDetailModal = ({
         </div>
       )}
 
-      {/* 🌟 Pro Modern Custom Modal Component */}
-
       <CustomModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
@@ -486,7 +621,6 @@ const PropertyDetailModal = ({
         type={modalConfig.type}
         onClose={() => {
           setModalConfig({ ...modalConfig, isOpen: false });
-          // အကယ်၍ အကောင့်ဝင်ရန် လိုအပ်၍ ပိတ်လိုက်ပါက Login စာမျက်နှာသို့ ပို့ပေးမည်
           if (modalConfig.title === "အကောင့်ဝင်ရန် လိုအပ်ပါသည်") {
             onClose();
             navigate("/login");
@@ -497,4 +631,4 @@ const PropertyDetailModal = ({
   );
 };
 
-export default PropertyDetailModal; // (သို့မဟုတ် export default PropertyDetailModal;)
+export default PropertyDetailModal;
