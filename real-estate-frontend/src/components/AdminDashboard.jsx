@@ -9,13 +9,37 @@ const AdminDashboard = () => {
   const [properties, setProperties] = useState([]);
   const [error, setError] = useState(null);
 
+  // ➕ Create User Modal States
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    role: "client",
+    coins: 100,
+    is_approved: true,
+  });
+  const [userSubmitting, setUserSubmitting] = useState(false);
+
+  // ✏️ Edit User Full Profile Modal States
+  const [editUserModal, setEditUserModal] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "client",
+    coins: 0,
+    is_approved: true,
+  });
+
   // Modals States
   const [selectedUserForCoins, setSelectedUserForCoins] = useState(null);
   const [coinAmount, setCoinAmount] = useState("");
   const [coinActionType, setCoinActionType] = useState("add");
 
   const [editingUser, setEditingUser] = useState(null);
-  const [updatedRole, setUpdatedRole] = useState("user");
+  const [updatedRole, setUpdatedRole] = useState("client");
 
   const [editingProperty, setEditingProperty] = useState(null);
   const [propertyForm, setPropertyForm] = useState({
@@ -33,7 +57,7 @@ const AdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+      const response = await fetch(`${API_BASE_URL}/auth/admin/users`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       const result = await response.json();
@@ -67,7 +91,7 @@ const AdminDashboard = () => {
 
   const fetchUsersSilent = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+      const response = await fetch(`${API_BASE_URL}/auth/admin/users`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       const result = await response.json();
@@ -102,7 +126,7 @@ const AdminDashboard = () => {
       try {
         const token = getToken();
 
-        const userRes = await fetch(`${API_BASE_URL}/admin/users`, {
+        const userRes = await fetch(`${API_BASE_URL}/auth/admin/users`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const userResult = await userRes.json();
@@ -140,41 +164,146 @@ const AdminDashboard = () => {
     };
   }, []);
 
-  // 🪙 Coins ချက်ချင်းပြောင်းလဲရန်
-  const handleUpdateCoins = async (e) => {
+  // ➕ Admin: Create New User (C - Create)
+  const handleCreateUser = async (e) => {
     e.preventDefault();
-    if (!selectedUserForCoins || !coinAmount) return;
-    const parsedAmount = parseInt(coinAmount);
-    const finalAmount = coinActionType === "add" ? parsedAmount : -parsedAmount;
+    if (userSubmitting) return;
+    setUserSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/admin/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          ...newUserForm,
+          coins: Number(newUserForm.coins) || 0,
+          is_approved:
+            newUserForm.role === "client"
+              ? true
+              : Boolean(newUserForm.is_approved),
+        }),
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        if (result.data) {
+          setUsers((prev) => [...prev, result.data]);
+        } else {
+          await fetchUsers();
+        }
+        setShowAddUserModal(false);
+        setNewUserForm({
+          name: "",
+          email: "",
+          phone: "",
+          password: "",
+          role: "client",
+          coins: 100,
+          is_approved: true,
+        });
+        alert("User အကောင့်အသစ် ဖန်တီးပြီးပါပြီ။");
+      } else {
+        alert(result.error || "User ဖန်တီးရန် မအောင်မြင်ပါ။");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error ဖြစ်ပွားနေပါသည်။");
+    } finally {
+      setUserSubmitting(false);
+    }
+  };
+
+  // ✏️ Admin: Open Edit User Modal
+  const openEditUserModal = (user) => {
+    setEditUserModal(user);
+    setEditUserForm({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      role: user.role || "client",
+      coins: user.coins ?? 0,
+      is_approved: Boolean(user.is_approved),
+    });
+  };
+
+  // ✏️ Admin: Save Edited User (U - Update Full Profile)
+  const handleSaveEditedUser = async (e) => {
+    e.preventDefault();
+    if (!editUserModal || userSubmitting) return;
+    setUserSubmitting(true);
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/admin/users/${selectedUserForCoins.id}/coins`,
+        `${API_BASE_URL}/auth/admin/users/${editUserModal.id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${getToken()}`,
           },
-          body: JSON.stringify({ coins: finalAmount }),
+          body: JSON.stringify({
+            ...editUserForm,
+            coins: Number(editUserForm.coins) || 0,
+            is_approved: Boolean(editUserForm.is_approved),
+          }),
+        },
+      );
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === editUserModal.id
+              ? result.data || { ...u, ...editUserForm }
+              : u,
+          ),
+        );
+        setEditUserModal(null);
+        alert("User အချက်အလက်များ ပြင်ဆင်ပြီးပါပြီ။");
+      } else {
+        alert(result.error || "User ပြင်ဆင်ရန် မအောင်မြင်ပါ။");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error ဖြစ်ပွားနေပါသည်။");
+    } finally {
+      setUserSubmitting(false);
+    }
+  };
+
+  // 🪙 Coins ချက်ချင်းပြောင်းလဲရန်
+  const handleUpdateCoins = async (e) => {
+    e.preventDefault();
+    if (!selectedUserForCoins || !coinAmount) return;
+    const parsedAmount = parseInt(coinAmount, 10);
+    const currentCoins = parseInt(selectedUserForCoins.coins || 0, 10);
+    const updatedCoins =
+      coinActionType === "add"
+        ? currentCoins + parsedAmount
+        : Math.max(0, currentCoins - parsedAmount);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/auth/admin/users/${selectedUserForCoins.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ coins: updatedCoins }),
         },
       );
       const result = await response.json();
       if (response.ok && result.success) {
         setUsers((prevUsers) =>
-          prevUsers.map((u) => {
-            if (u.id === selectedUserForCoins.id) {
-              const currentCoins = parseInt(u.coins || 0);
-              const updatedCoins =
-                coinActionType === "add"
-                  ? currentCoins + parsedAmount
-                  : Math.max(0, currentCoins - parsedAmount);
-              return { ...u, coins: updatedCoins };
-            }
-            return u;
-          }),
+          prevUsers.map((u) =>
+            u.id === selectedUserForCoins.id
+              ? { ...u, coins: updatedCoins }
+              : u,
+          ),
         );
-
         setSelectedUserForCoins(null);
         setCoinAmount("");
       } else {
@@ -186,13 +315,14 @@ const AdminDashboard = () => {
     }
   };
 
+  // 🛡️ User Role ပြောင်းလဲရန်
   const handleUpdateUserRole = async (e) => {
     e.preventDefault();
     if (!editingUser) return;
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/admin/users/${editingUser.id}/role`,
+        `${API_BASE_URL}/auth/admin/users/${editingUser.id}`,
         {
           method: "PUT",
           headers: {
@@ -235,7 +365,6 @@ const AdminDashboard = () => {
       );
       const result = await response.json();
       if (response.ok && result.success) {
-        // 🔑 အဓိကပြင်ဆင်ချက်: State ထဲရှိ users စာရင်းကို ချက်ချင်း update လုပ်ပေးပါ (Polling ကို မစောင့်တော့ဘဲ UI မှာ ချက်ချင်းပြောင်းသွားစေရန်)
         setUsers((prevUsers) =>
           prevUsers.map((u) =>
             u.id === userId ? { ...u, is_approved: status } : u,
@@ -281,18 +410,26 @@ const AdminDashboard = () => {
     }
   };
 
+  // 🗑️ Delete User (D - Delete)
   const handleDeleteUser = async (userId) => {
     if (!window.confirm("ဒီ User အကောင့်ကို ဖျက်ပစ်မှာ သေချာပါသလား?")) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/auth/admin/users/${userId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${getToken()}` },
+        },
+      );
+      const result = await response.json();
       if (response.ok) {
         setUsers((prevUsers) => prevUsers.filter((u) => u.id !== userId));
+      } else {
+        alert(result.error || "User ဖျက်ရန် မအောင်မြင်ပါ။");
       }
     } catch (err) {
       console.error(err);
+      alert("Server error ဖြစ်ပွားနေပါသည်။");
     }
   };
 
@@ -452,7 +589,7 @@ const AdminDashboard = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 space-y-6">
-          <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div className="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
             <div>
               <h1 className="text-lg font-bold text-slate-800">
                 {activeTab === "users"
@@ -463,12 +600,22 @@ const AdminDashboard = () => {
                 Real-time control panel for platform administration
               </p>
             </div>
-            <button
-              onClick={activeTab === "users" ? fetchUsers : fetchProperties}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
-            >
-              🔄 Refresh Data
-            </button>
+            <div className="flex items-center gap-2">
+              {activeTab === "users" && (
+                <button
+                  onClick={() => setShowAddUserModal(true)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
+                >
+                  ➕ Add User
+                </button>
+              )}
+              <button
+                onClick={activeTab === "users" ? fetchUsers : fetchProperties}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
+              >
+                🔄 Refresh Data
+              </button>
+            </div>
           </div>
 
           {error ? (
@@ -581,6 +728,13 @@ const AdminDashboard = () => {
                                 </button>
                               )}
 
+                              <button
+                                onClick={() => openEditUserModal(u)}
+                                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shadow-sm"
+                                title="User အချက်အလက် ပြင်ဆင်ရန်"
+                              >
+                                ✏️ Edit
+                              </button>
                               <button
                                 onClick={() => {
                                   setSelectedUserForCoins(u);
@@ -739,7 +893,276 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* ➕ Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-slate-800 font-bold text-base mb-1">
+              ➕ User အကောင့်အသစ် ဖန်တီးရန်
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              ဖုန်းနံပါတ်တစ်ခုလျှင် အကောင့်တစ်ခုသာ ခွင့်ပြုပါမည်။
+            </p>
+            <form onSubmit={handleCreateUser} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  နာမည်
+                </label>
+                <input
+                  type="text"
+                  value={newUserForm.name}
+                  onChange={(e) =>
+                    setNewUserForm({ ...newUserForm, name: e.target.value })
+                  }
+                  required
+                  placeholder="ဥပမာ - Mg Mg"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  ဖုန်းနံပါတ်
+                </label>
+                <input
+                  type="text"
+                  value={newUserForm.phone}
+                  onChange={(e) =>
+                    setNewUserForm({ ...newUserForm, phone: e.target.value })
+                  }
+                  required
+                  placeholder="09xxxxxxxxx"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newUserForm.email}
+                  onChange={(e) =>
+                    setNewUserForm({ ...newUserForm, email: e.target.value })
+                  }
+                  required
+                  placeholder="user@example.com"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={newUserForm.password}
+                  onChange={(e) =>
+                    setNewUserForm({ ...newUserForm, password: e.target.value })
+                  }
+                  required
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={newUserForm.role}
+                    onChange={(e) =>
+                      setNewUserForm({ ...newUserForm, role: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                  >
+                    <option value="client">Client</option>
+                    <option value="agent">Agent</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Coins
+                  </label>
+                  <input
+                    type="number"
+                    value={newUserForm.coins}
+                    onChange={(e) =>
+                      setNewUserForm({ ...newUserForm, coins: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="newUserApproved"
+                  type="checkbox"
+                  checked={newUserForm.is_approved}
+                  onChange={(e) =>
+                    setNewUserForm({
+                      ...newUserForm,
+                      is_approved: e.target.checked,
+                    })
+                  }
+                  className="rounded border-slate-300"
+                />
+                <label
+                  htmlFor="newUserApproved"
+                  className="text-xs font-semibold text-slate-600"
+                >
+                  Approved (Login ဝင်ခွင့်ပြုရန်)
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition"
+                >
+                  ပိတ်မည်
+                </button>
+                <button
+                  type="submit"
+                  disabled={userSubmitting}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-emerald-200 disabled:opacity-50"
+                >
+                  {userSubmitting ? "ဖန်တီးနေသည်..." : "ဖန်တီးမည်"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ Edit User Full Profile Modal */}
+      {editUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-slate-800 font-bold text-base mb-1">
+              ✏️ User အချက်အလက် ပြင်ဆင်ရန် (#{editUserModal.id})
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">{editUserModal.email}</p>
+            <form onSubmit={handleSaveEditedUser} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  နာမည်
+                </label>
+                <input
+                  type="text"
+                  value={editUserForm.name}
+                  onChange={(e) =>
+                    setEditUserForm({ ...editUserForm, name: e.target.value })
+                  }
+                  required
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  ဖုန်းနံပါတ်
+                </label>
+                <input
+                  type="text"
+                  value={editUserForm.phone}
+                  onChange={(e) =>
+                    setEditUserForm({ ...editUserForm, phone: e.target.value })
+                  }
+                  required
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editUserForm.email}
+                  onChange={(e) =>
+                    setEditUserForm({ ...editUserForm, email: e.target.value })
+                  }
+                  required
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={editUserForm.role}
+                    onChange={(e) =>
+                      setEditUserForm({ ...editUserForm, role: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                  >
+                    <option value="client">Client</option>
+                    <option value="agent">Agent</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Coins
+                  </label>
+                  <input
+                    type="number"
+                    value={editUserForm.coins}
+                    onChange={(e) =>
+                      setEditUserForm({
+                        ...editUserForm,
+                        coins: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="editUserApproved"
+                  type="checkbox"
+                  checked={editUserForm.is_approved}
+                  onChange={(e) =>
+                    setEditUserForm({
+                      ...editUserForm,
+                      is_approved: e.target.checked,
+                    })
+                  }
+                  className="rounded border-slate-300"
+                />
+                <label
+                  htmlFor="editUserApproved"
+                  className="text-xs font-semibold text-slate-600"
+                >
+                  Approved (Login ဝင်ခွင့်ပြုရန်)
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditUserModal(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition"
+                >
+                  ပိတ်မည်
+                </button>
+                <button
+                  type="submit"
+                  disabled={userSubmitting}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-50"
+                >
+                  {userSubmitting ? "သိမ်းဆည်းနေသည်..." : "သိမ်းဆည်းမည်"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Coins Modal */}
       {selectedUserForCoins && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100">
@@ -810,8 +1233,8 @@ const AdminDashboard = () => {
                 onChange={(e) => setUpdatedRole(e.target.value)}
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
               >
-                <option value="user">User / Client</option>
-                <option value="agent">Agent / Lister</option>
+                <option value="client">Client</option>
+                <option value="agent">Agent</option>
                 <option value="admin">Admin</option>
               </select>
               <div className="flex justify-end gap-2 pt-2">
@@ -923,7 +1346,6 @@ const AdminDashboard = () => {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">
                     အိမ်ခြံမြေ အမျိုးအစား (Type)
                   </label>
-                  {/* Dropdown အဖြစ် ပြောင်းလဲထားပါသည် */}
                   <select
                     value={propertyForm.propertyType || "Apartment"}
                     onChange={(e) =>

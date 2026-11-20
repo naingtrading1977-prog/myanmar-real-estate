@@ -5,6 +5,20 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5002/api";
 
+const normalizeMyanmarPhone = (rawPhone) => {
+  const digits = String(rawPhone || "").replace(/\D/g, "");
+  if (digits.startsWith("959") && digits.length >= 10) {
+    return `+${digits}`;
+  }
+  if (digits.startsWith("09") && digits.length >= 10) {
+    return `+95${digits.slice(1)}`;
+  }
+  if (digits.startsWith("9") && digits.length >= 9) {
+    return `+95${digits}`;
+  }
+  return null;
+};
+
 export default function SignupForm({ onSignupSuccess, switchToLogin }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -22,21 +36,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const formatPhoneNumber = (inputPhone) => {
-    let cleaned = inputPhone.trim().replace(/[^0-9+]/g, "");
-
-    if (cleaned.startsWith("+95")) {
-      return cleaned;
-    }
-    if (cleaned.startsWith("09")) {
-      return "+95" + cleaned.substring(1);
-    }
-    if (cleaned.startsWith("9")) {
-      return "+95" + cleaned;
-    }
-    return "+95" + cleaned;
-  };
-
   const handleAutoGenerate = () => {
     if (!formData.name || !formData.phone) {
       setError(
@@ -44,9 +43,18 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
       );
       return;
     }
+
+    const normalizedPhone = normalizeMyanmarPhone(formData.phone);
+    if (!normalizedPhone) {
+      setError(
+        "ကျေးဇူးပြု၍ မှန်ကန်သော မြန်မာဖုန်းနံပါတ် (ဥပမာ - 09784970257) ထည့်သွင်းပါ။",
+      );
+      return;
+    }
+
     setError("");
 
-    const cleanPhone = formData.phone.replace(/[^0-9]/g, "");
+    const cleanPhone = normalizedPhone.replace(/\D/g, "");
     const last4Digits = cleanPhone.slice(-4) || "1234";
 
     let formattedName = formData.name
@@ -62,6 +70,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
 
     setFormData({
       ...formData,
+      phone: normalizedPhone,
       email: autoEmail,
       password: autoPassword,
     });
@@ -70,12 +79,19 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     if (loading) return;
-    setLoading(true);
     setError("");
 
-    try {
-      const formattedPhone = formatPhoneNumber(formData.phone);
+    const formattedPhone = normalizeMyanmarPhone(formData.phone);
+    if (!formattedPhone) {
+      setError(
+        "ကျေးဇူးပြု၍ မှန်ကန်သော မြန်မာဖုန်းနံပါတ် (09xxxxxxxxx) ရိုက်ထည့်ပါ။",
+      );
+      return;
+    }
 
+    setLoading(true);
+
+    try {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
@@ -109,6 +125,12 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
           else if (switchToLogin) switchToLogin();
         }, 1500);
       } else {
+        // Backend က 409 (Duplicate phone/email) စသဖြင့် ငြင်းရင် Firebase user မကျန်အောင် ပြန်ဖျက်နိုင်ပါတယ်
+        try {
+          await firebaseUser.delete();
+        } catch (delErr) {
+          console.error("Failed to rollback Firebase user:", delErr);
+        }
         setError(
           data.message || data.error || "အကောင့်ဖွင့်ခြင်း မအောင်မြင်ပါ။",
         );
@@ -219,7 +241,6 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pr-11 text-sm text-white focus:outline-none focus:border-emerald-500"
               placeholder="••••••••"
             />
-            {/* 👁️ အလယ်တည့်တည့်သို့ အზუსဆုံး ချိန်ညှိပေးထားသော မျက်လုံး Icon ခလုတ် */}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
@@ -297,6 +318,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
       <div className="text-center mt-5 pt-3 border-t border-slate-800 text-sm text-slate-400">
         အကောင့်ရှိပြီးသားလား?{" "}
         <button
+          type="button"
           onClick={switchToLogin}
           className="text-emerald-400 hover:underline font-semibold ml-1"
         >

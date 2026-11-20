@@ -1,33 +1,50 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs"); // 👈 bcrypt ကို import လုပ်ရန်
-const { pool } = require("../config/db"); // 👈 database pool ကို import လုပ်ရန် (အကို့ project path အတိုင်း ချိန်ပါ)
+const bcrypt = require("bcryptjs");
+const { pool } = require("../config/db");
 const authController = require("../controllers/authController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
 // Public Routes
 router.post("/register", authController.register);
 router.post("/login", authController.login);
+
+// Protected Routes (Login ဝင်ထားမှ ရမည်)
+router.get("/me", protect, authController.getMe);
+
+// 👑 Admin Users CRUD Routes
+router.get(
+  "/admin/users",
+  protect,
+  authorize("admin"),
+  authController.getAllUsers,
+);
+router.post(
+  "/admin/users",
+  protect,
+  authorize("admin"),
+  authController.adminCreateUser,
+);
+router.put(
+  "/admin/users/:id",
+  protect,
+  authorize("admin"),
+  authController.adminUpdateUser,
+);
 router.put(
   "/admin/users/:id/approve",
   protect,
   authorize("admin"),
   authController.approveAgent,
 );
-// Protected Routes (Login ဝင်ထားမှ ရမည်)
-router.get("/me", protect, authController.getMe);
-
-// 👑 Admin / Developer သီးသန့် Route ဥပမာ (Admin role ရှိမှသာ ဝင်လို့ရမည်)
-router.get(
-  "/admin/dashboard-stats",
+router.delete(
+  "/admin/users/:id",
   protect,
   authorize("admin"),
-  (req, res) => {
-    res.json({ success: true, message: "Welcome to Admin Dashboard" });
-  },
+  authController.deleteUser,
 );
 
-// Admin can reset user password (protect နှင့် authorize("admin") ကို သုံးရန်)
+// Admin can reset user password
 router.put(
   "/admin/users/:id/password",
   protect,
@@ -57,6 +74,15 @@ router.put(
       console.error(err);
       res.status(500).json({ success: false, error: "Server error" });
     }
+  },
+);
+
+router.get(
+  "/admin/dashboard-stats",
+  protect,
+  authorize("admin"),
+  (req, res) => {
+    res.json({ success: true, message: "Welcome to Admin Dashboard" });
   },
 );
 
