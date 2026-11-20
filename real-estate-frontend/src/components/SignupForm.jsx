@@ -139,7 +139,7 @@ export default function SignupForm({ onSignupSuccess, switchToLogin }) {
       console.error("Registration error:", err);
       if (err.code === "auth/email-already-in-use") {
         setError(
-          "ဤအီးမေးလ်ဖြင့် အကောင့်ဖွင့်ပြီးသား ဖြစ်နေပါသည်။ Auto-generate ကို ထပ်နှိပ်ပါ သို့မဟုတ် ကိုယ်ပိုင် Email ပြောင်းသုံးပါ။",
+          "ဤအီးမေးလ် သို့မဟုတ် ဖုန်းနံပါတ်ဖြင့် အကောင့်ဖွင့်ပြီးသား ဖြစ်နေပါသည်။ ဖုန်းနံပါတ်တစ်ခုလျှင် အကောင့်တစ်ခုသာ ဖွင့်ခွင့်ရှိသဖြင့် အခြားဖုန်းနံပါတ် ပြောင်းလဲရိုက်ထည့်ပါ (သို့မဟုတ် Auto-generate ကို ထပ်နှိပ်ပါ)။",
         );
       } else {
         setError(err.message || "အကောင့်ဖွင့်ရာတွင် အမှားအယွင်း ရှိပါသည်။");
