@@ -177,6 +177,16 @@ const Navbar = ({
           listingType: "Sale",
           category: "Land",
         },
+        {
+          label: lang === "en" ? "Commercial / Office" : "ဆိုင်ခန်း / ရုံးခန်း",
+          listingType: "Sale",
+          category: "Commercial",
+        },
+        {
+          label: lang === "en" ? "Restaurant" : "စားသောက်ဆိုင်",
+          listingType: "Sale",
+          category: "Restaurant",
+        },
       ],
     },
     {
@@ -207,6 +217,11 @@ const Navbar = ({
           label: lang === "en" ? "Commercial / Office" : "ဆိုင်ခန်း / ရုံးခန်း",
           listingType: "Rent",
           category: "Commercial",
+        },
+        {
+          label: lang === "en" ? "Restaurant" : "စားသောက်ဆိုင်",
+          listingType: "Rent",
+          category: "Restaurant",
         },
       ],
     },

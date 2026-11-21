@@ -85,7 +85,8 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // 📐 Tab ထွက်သွားချိန် (onBlur) တွင် Auto Square တွက်ပေးမည့် Function
@@ -103,7 +104,8 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   };
 
   const handleBrokerFieldChange = (e) => {
-    setBrokerForm({ ...brokerForm, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setBrokerForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleApplyBrokerForm = () => {
@@ -246,7 +248,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
       uploadData.append("ownership_document", formData.ownership_document);
       uploadData.append(
         "building_status",
-        formData.type === "Apartment"
+        ["Apartment", "Commercial", "Restaurant"].includes(formData.type)
           ? formData.building_status
           : "လူနေထိုင်ခွင့် အလိုလိုပြီးသား (ဂရန်/ပါမစ်)",
       );
@@ -274,9 +276,10 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-[9999] flex justify-center items-center p-4 backdrop-blur-sm">
+      <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
         <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
           <button
+            type="button"
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold"
           >
@@ -362,7 +365,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                   name="listing_type"
                   value={formData.listing_type}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold text-emerald-700 bg-emerald-50/50"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold text-emerald-700 bg-emerald-50/50 cursor-pointer"
                 >
                   <option value="Sale">🏷️ အရောင်း (For Sale)</option>
                   <option value="Rent">🏠 အငှား (For Rent)</option>
@@ -376,13 +379,17 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                   name="type"
                   value={formData.type}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 cursor-pointer"
                 >
                   <option value="Apartment">
                     Apartment / Condo (တိုက်ခန်း)
                   </option>
                   <option value="Land">Land Plot (မြေကွက်)</option>
                   <option value="Villa">Villa / House (လုံးချင်းအိမ်)</option>
+                  <option value="Commercial">
+                    Commercial / Shop / Office (ဆိုင်ခန်း / ရုံးခန်း)
+                  </option>
+                  <option value="Restaurant">Restaurant (စားသောက်ဆိုင်)</option>
                 </select>
               </div>
             </div>
@@ -534,7 +541,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 name="ownership_document"
                 value={formData.ownership_document}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full max-w-full truncate border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 cursor-pointer focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား">
                   ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား
@@ -554,11 +561,22 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 <option value="လယ်မြေ (လန 30 ကျပြီး)">
                   လယ်မြေ (လန 30 ကျပြီး)
                 </option>
+                <option value="အငှားစာချုပ် / ငှားရမ်းခွင့်ပြုချက် (Lease Agreement)">
+                  အငှားစာချုပ် / ငှားရမ်းခွင့်ပြုချက် (Lease Agreement)
+                </option>
+                <option value="စီးပွားရေးလုပ်ငန်းလိုင်စင် / စည်ပင်ခွင့်ပြုချက်">
+                  စီးပွားရေးလုပ်ငန်းလိုင်စင် / စည်ပင်ခွင့်ပြုချက်
+                </option>
+                <option value="စားသောက်ဆိုင်လိုင်စင် / ကျန်းမာရေးနှင့် မီးသတ်ထောက်ခံချက်">
+                  စားသောက်ဆိုင်လိုင်စင် / ကျန်းမာရေးနှင့် မီးသတ်ထောက်ခံချက်
+                </option>
                 <option value="အခြား (Other)">အခြား (Other)</option>
               </select>
             </div>
 
-            {formData.type === "Apartment" && (
+            {["Apartment", "Commercial", "Restaurant"].includes(
+              formData.type,
+            ) && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Building Status (BCC နှင့် လူနေထိုင်ခွင့် အခြေအနေ)
@@ -567,7 +585,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                   name="building_status"
                   value={formData.building_status}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full max-w-full truncate border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 cursor-pointer focus:ring-emerald-500 focus:border-emerald-500"
                 >
                   <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး">
                     BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး
