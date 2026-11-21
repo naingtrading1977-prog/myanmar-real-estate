@@ -356,9 +356,9 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
+            <div className="grid grid-cols-2 gap-4 items-stretch">
+              <div className="flex flex-col justify-between">
+                <label className="block text-sm font-medium text-gray-700 leading-snug">
                   Listing Type (ကြော်ငြာအမျိုးအစား)
                 </label>
                 <select
@@ -371,8 +371,9 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                   <option value="Rent">🏠 အငှား (For Rent)</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
+
+              <div className="flex flex-col justify-between">
+                <label className="block text-sm font-medium text-gray-700 leading-snug">
                   Property Type (အိမ်ခြံမြေ အမျိုးအစား)
                 </label>
                 <select
