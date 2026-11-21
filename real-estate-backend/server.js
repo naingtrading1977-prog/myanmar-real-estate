@@ -6,6 +6,7 @@ const fs = require("fs");
 const paymentRoutes = require("./routes/paymentRoutes");
 const topupRoutes = require("./routes/topupRoutes");
 const { connectDB, pool } = require("./config/db");
+const wantedRoutes = require("./routes/wanted");
 
 const app = express();
 
@@ -154,7 +155,7 @@ app.put("/api/properties/:id/status", async (req, res) => {
 // Routes Registration
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/properties", require("./routes/propertyRoutes"));
-
+app.use("/api/wanted", wantedRoutes);
 // Routes for Payments
 app.use("/api/payments", paymentRoutes);
 app.use("/api/topup", topupRoutes);

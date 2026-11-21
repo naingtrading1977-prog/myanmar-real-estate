@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import Navbar from "./components/Navbar";
 import PropertyMap from "./components/PropertyMap";
@@ -13,8 +14,11 @@ import { getProperties, deleteProperty } from "./api/propertyApi";
 import PropertyListTableModal from "./components/PropertyListTableModal";
 import AboutUsModal from "./components/AboutUsModal";
 import "./index.css";
+import AgentsPage from "./components/AgentsPage";
+import WantedListingsPage from "./components/WantedListingsPage";
 
 function App() {
+  const location = useLocation();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [properties, setProperties] = useState([]);
@@ -27,8 +31,53 @@ function App() {
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
+  // 🌐 Language & Phase 1 Category Filter States
+  const [language, setLanguage] = useState(
+    localStorage.getItem("app_lang") || "mm",
+  );
+  const [activeFilter, setActiveFilter] = useState({
+    listingType: "",
+    category: "",
+  });
+
   const dispatch = useDispatch();
   const { user, isAuthenticated } = useSelector((state) => state.auth);
+
+  const t = {
+    adBadge: language === "en" ? "ANNOUNCEMENT" : "ကြော်ငြာ",
+    marqueeText:
+      language === "en"
+        ? "✨ Explore top real estate properties for sale and rent across Yangon! List your properties with confidence anytime. ✨"
+        : "✨ ရန်ကုန်မြို့တွင်း အကောင်းဆုံး အိမ်ခြံမြေ အရောင်း/အငှားများကို ယခုပဲ လွတ်လပ်စွာ ဝင်ရောက်ကြည့်ရှုနိုင်ပါပြီခင်ဗျာ! လူကြီးမင်းတို့၏ ပိုင်ဆိုင်မှုများကိုလည်း ယုံကြည်စိတ်ချစွာ တင်ဆောင်နိုင်ပါသည်။ ✨",
+    mapTitle: language === "en" ? "Location Map View" : "Location Map View",
+    latestTitle: language === "en" ? "Latest Listings" : "Latest Listings",
+    latestBadge: language === "en" ? "Latest" : "Latest",
+    propertiesCount: language === "en" ? "Properties" : "Properties",
+    viewAll: language === "en" ? "View All" : "View All",
+    viewAllListings:
+      language === "en" ? "View All Listings" : "View All Listings",
+    noProperties:
+      language === "en"
+        ? "No matching properties found."
+        : "ကိုက်ညီသော အိမ်ခြံမြေ စာရင်း မရှိသေးပါ။",
+    clearFilter: language === "en" ? "Reset Filter" : "Filter ရှင်းရန်",
+    showingFilter:
+      language === "en" ? "Filtered by:" : "ရွေးချယ်ထားသော အမျိုးအစား:",
+    rentLabel: language === "en" ? "For Rent" : "အငှား",
+    saleLabel: language === "en" ? "For Sale" : "အရောင်း",
+    pricePerMonth: language === "en" ? "Lakhs / mo" : "သိန်း / လ",
+    priceLakhs: language === "en" ? "Lakhs" : "သိန်း",
+    viewsSuffix: language === "en" ? "views" : "ဦးကြည့်",
+    noImage: language === "en" ? "No Image" : "No Image",
+    confirmDelete:
+      language === "en"
+        ? "Are you sure you want to delete this listing?"
+        : "ဒီကြော်ငြာကို ဖျက်မှာ သေချာပါသလား?",
+    deleteError:
+      language === "en"
+        ? "Failed to delete property."
+        : "ဖျက်ရာတွင် အမှားအယွင်း ရှိနေပါသည်။",
+  };
 
   // 🔄 Property ဒေတာများကို ပုံစံချပေးပြီး State ထဲသို့ သိမ်းဆည်းသည့် Helper Function
   const formatAndSetProperties = (rawData) => {
@@ -130,27 +179,53 @@ function App() {
   const isAdmin =
     isAuthenticated && user && (user.role === "admin" || user.isAdmin);
 
-  const activeProperties = properties.filter((item) => {
-    const status = (item.status || "").trim();
-    return (
-      status !== "Sold" &&
-      status !== "Rented" &&
-      status !== "Hidden" &&
-      status !== "အရောင်းပြီး" &&
-      status !== "အငှားပြီး"
-    );
-  });
+  const activeProperties = useMemo(() => {
+    return properties.filter((item) => {
+      const status = (item.status || "").trim();
+      return (
+        status !== "Sold" &&
+        status !== "Rented" &&
+        status !== "Hidden" &&
+        status !== "အရောင်းပြီး" &&
+        status !== "အငှားပြီး"
+      );
+    });
+  }, [properties]);
+
+  // 🔎 Navbar Category & Listing Type Filter
+  const filteredProperties = useMemo(() => {
+    return activeProperties.filter((item) => {
+      if (activeFilter.listingType) {
+        const itemType = (item.listing_type || "").toLowerCase();
+        if (itemType !== activeFilter.listingType.toLowerCase()) {
+          return false;
+        }
+      }
+      if (activeFilter.category) {
+        const propCat = (item.property_type || item.type || "").toLowerCase();
+        if (propCat !== activeFilter.category.toLowerCase()) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [activeProperties, activeFilter]);
 
   // 🕒 Latest အသစ်တင်ထားတာတွေ ဦးစားပေးစီခြင်း
-  const latestProperties = [...activeProperties].sort((a, b) => {
-    if (a.created_at && b.created_at) {
-      return new Date(b.created_at) - new Date(a.created_at);
-    }
-    return Number(b.id || 0) - Number(a.id || 0);
-  });
+  const latestProperties = useMemo(() => {
+    return [...filteredProperties].sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        return new Date(b.created_at) - new Date(a.created_at);
+      }
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
+  }, [filteredProperties]);
 
   // 📌 Main Page တွင် ထိပ်ဆုံး Latest ၃ ခုသာ ပြရန်
-  const displayedProperties = latestProperties.slice(0, 3);
+  const displayedProperties = useMemo(
+    () => latestProperties.slice(0, 3),
+    [latestProperties],
+  );
 
   // 🔄 ပုံများကို ၃ စက္ကန့်တစ်ကြိမ် အလိုအလျောက် Slide ဖြစ်စေရန်
   useEffect(() => {
@@ -184,13 +259,13 @@ function App() {
 
   const handleDeleteClick = async (e, id) => {
     e.stopPropagation();
-    if (window.confirm("ဒီကြော်ငြာကို ဖျက်မှာ သေချာပါသလား?")) {
+    if (window.confirm(t.confirmDelete)) {
       try {
         await deleteProperty(id);
         fetchPropertiesData();
       } catch (err) {
         console.error("Failed to delete property", err);
-        alert("ဖျက်ရာတွင် အမှားအယွင်း ရှိနေပါသည်။");
+        alert(t.deleteError);
       }
     }
   };
@@ -242,6 +317,16 @@ function App() {
     return `${baseURL}${formattedPath}`;
   };
 
+  const hasActiveFilter = Boolean(
+    activeFilter.listingType || activeFilter.category,
+  );
+
+  const formatPrice = (rawPrice) => {
+    const num = Number(rawPrice);
+    if (Number.isNaN(num)) return rawPrice;
+    return Number.isInteger(num) ? num.toLocaleString() : num.toString();
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between">
       <div>
@@ -251,31 +336,67 @@ function App() {
           onLogout={() => dispatch(logout())}
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenPostModal={() => setIsAddPropertyOpen(true)}
+          onSelectCategory={(filterObj) => setActiveFilter(filterObj)}
+          language={language}
+          onChangeLanguage={(nextLang) => setLanguage(nextLang)}
         />
 
         <div className="bg-emerald-600 text-white py-2 px-4 shadow-inner flex items-center">
           <span className="bg-emerald-700 text-xs font-bold px-2 py-1 rounded mr-3 uppercase tracking-wider">
-            ကြော်ငြာ
+            {t.adBadge}
           </span>
           <marquee scrollamount="5" className="text-sm font-medium">
-            ✨ ရန်ကုန်မြို့တွင်း အကောင်းဆုံး အိမ်ခြံမြေ အရောင်း/အငှားများကို
-            ယခုပဲ လွတ်လပ်စွာ ဝင်ရောက်ကြည့်ရှုနိုင်ပါပြီခင်ဗျာ! လူကြီးမင်းတို့၏
-            ပိုင်ဆိုင်မှုများကိုလည်း ယုံကြည်စိတ်ချစွာ တင်ဆောင်နိုင်ပါသည်။ ✨
+            {t.marqueeText}
           </marquee>
         </div>
 
         <main className="max-w-7xl mx-auto p-6 space-y-6">
-          {isAdmin ? (
+          {location.pathname === "/agents" ? (
+            <AgentsPage properties={activeProperties} language={language} />
+          ) : location.pathname === "/wanted" ? (
+            <WantedListingsPage
+              language={language}
+              isAuthenticated={isAuthenticated}
+              onOpenAuth={() => setIsAuthOpen(true)}
+            />
+          ) : isAdmin ? (
             <AdminDashboard />
           ) : (
             <>
+              {hasActiveFilter && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs md:text-sm">
+                  <div className="flex items-center gap-2 font-medium text-emerald-900">
+                    <span>{t.showingFilter}</span>
+                    {activeFilter.listingType && (
+                      <span className="bg-emerald-600 text-white px-2.5 py-0.5 rounded-full font-bold text-xs">
+                        {activeFilter.listingType}
+                      </span>
+                    )}
+                    {activeFilter.category && (
+                      <span className="bg-white text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full font-bold text-xs">
+                        {activeFilter.category}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveFilter({ listingType: "", category: "" })
+                    }
+                    className="text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                  >
+                    {t.clearFilter}
+                  </button>
+                </div>
+              )}
+
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">
-                  Location Map View
+                  {t.mapTitle}
                 </h2>
                 <div className="rounded-xl overflow-hidden h-[450px] w-full">
                   <PropertyMap
-                    properties={activeProperties}
+                    properties={filteredProperties}
                     onSelectProperty={handleCardClick}
                   />
                 </div>
@@ -285,34 +406,43 @@ function App() {
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2.5">
                     <h2 className="text-xl font-bold text-slate-800">
-                      Latest Listings
+                      {t.latestTitle}
                     </h2>
                     <span className="bg-amber-100 text-amber-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                      Latest
+                      {t.latestBadge}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1 rounded-full">
-                      {activeProperties.length} Properties
+                      {filteredProperties.length} {t.propertiesCount}
                     </span>
-                    {activeProperties.length > 3 && (
+                    {filteredProperties.length > 3 && (
                       <button
                         type="button"
                         onClick={() => setIsTableModalOpen(true)}
                         className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full transition cursor-pointer"
                       >
-                        View All ({activeProperties.length}) →
+                        {t.viewAll} ({filteredProperties.length}) →
                       </button>
                     )}
                   </div>
                 </div>
 
                 {displayedProperties.length === 0 ? (
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center shadow-sm">
-                    <p className="text-slate-500 text-sm">
-                      No properties listed yet.
-                    </p>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center shadow-sm space-y-3">
+                    <p className="text-slate-500 text-sm">{t.noProperties}</p>
+                    {hasActiveFilter && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveFilter({ listingType: "", category: "" })
+                        }
+                        className="px-4 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition cursor-pointer"
+                      >
+                        {t.clearFilter}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -382,7 +512,7 @@ function App() {
                                 </>
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400 text-sm font-medium">
-                                  🏠 No Image
+                                  🏠 {t.noImage}
                                 </div>
                               )}
 
@@ -393,18 +523,29 @@ function App() {
                                 <span
                                   className={`text-xs px-2.5 py-1 rounded-full font-semibold ${isRent ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"}`}
                                 >
-                                  {isRent ? "အငှား" : "အရောင်း"}
+                                  {isRent ? t.rentLabel : t.saleLabel}
                                 </span>
                               </div>
                             </div>
 
-                            <div className="p-5 flex flex-col justify-between flex-grow space-y-4">
+                            <div className="p-5 flex flex-col justify-between flex-grow space-y-3">
                               <div>
                                 <h3 className="font-bold text-base text-slate-800 group-hover:text-emerald-600 transition line-clamp-1">
                                   {item.title}
                                 </h3>
 
-                                <div className="flex items-center justify-between mt-2 text-xs font-semibold text-slate-600">
+                                <p className="text-xs text-slate-500 mt-1 flex items-center justify-between gap-2">
+                                  <span className="truncate">
+                                    📍 {item.township || item.city || "ရန်ကုန်"}
+                                  </span>
+                                  {item.area_sqft ? (
+                                    <span className="shrink-0 font-semibold text-slate-600">
+                                      📐 {Number(item.area_sqft)} sq.ft
+                                    </span>
+                                  ) : null}
+                                </p>
+
+                                <div className="flex items-center justify-between mt-2.5 text-xs font-semibold text-slate-600">
                                   <div className="flex items-center gap-1">
                                     <span className="text-amber-500">⭐</span>
                                     <span className="font-bold text-slate-800">
@@ -417,15 +558,15 @@ function App() {
                                     </span>
                                   </div>
                                   <div className="text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
-                                    👀 {item.views || 0} ဦးကြည့်
+                                    👀 {item.views || 0} {t.viewsSuffix}
                                   </div>
                                 </div>
 
                                 <div className="mt-3 flex items-baseline justify-between">
                                   <span className="text-emerald-600 font-extrabold text-lg">
-                                    {item.price}{" "}
+                                    {formatPrice(item.price)}{" "}
                                     <span className="text-sm font-normal text-slate-600">
-                                      {isRent ? "သိန်း / လ" : "သိန်း"}
+                                      {isRent ? t.pricePerMonth : t.priceLakhs}
                                     </span>
                                   </span>
                                 </div>
@@ -455,14 +596,14 @@ function App() {
                       })}
                     </div>
 
-                    {activeProperties.length > 0 && (
+                    {filteredProperties.length > 0 && (
                       <div className="pt-2 flex justify-center">
                         <button
                           type="button"
                           onClick={() => setIsTableModalOpen(true)}
                           className="px-6 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 font-semibold text-sm rounded-xl border border-emerald-200 shadow-sm transition cursor-pointer"
                         >
-                          View All Listings ({activeProperties.length})
+                          {t.viewAllListings} ({filteredProperties.length})
                         </button>
                       </div>
                     )}
@@ -482,7 +623,7 @@ function App() {
       <PropertyListTableModal
         isOpen={isTableModalOpen}
         onClose={() => setIsTableModalOpen(false)}
-        properties={activeProperties}
+        properties={filteredProperties}
         onSelectProperty={handleCardClick}
       />
 
@@ -510,6 +651,7 @@ function App() {
         onClose={() => setIsDetailModalOpen(false)}
         property={selectedProperty}
         onPropertyUpdated={fetchPropertiesData}
+        language={language}
       />
     </div>
   );

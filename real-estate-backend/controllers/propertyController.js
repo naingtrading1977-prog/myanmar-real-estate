@@ -279,6 +279,7 @@ exports.getProperties = async (req, res) => {
     const query = `
       SELECT 
         p.*, 
+        u.name AS owner_name,
         CASE 
           WHEN p.location IS NOT NULL THEN ST_X(p.location::geometry) 
           ELSE NULL 
@@ -293,8 +294,9 @@ exports.getProperties = async (req, res) => {
           ) FILTER (WHERE img.id IS NOT NULL), '[]'
         ) AS images
       FROM properties p
+      LEFT JOIN users u ON p.owner_id = u.id
       LEFT JOIN property_images img ON p.id = img.property_id
-      GROUP BY p.id
+      GROUP BY p.id, u.id
       ORDER BY p.created_at DESC;
     `;
 

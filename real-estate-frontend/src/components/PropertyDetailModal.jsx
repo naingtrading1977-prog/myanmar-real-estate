@@ -8,8 +8,11 @@ const PropertyDetailModal = ({
   onClose,
   property,
   onPropertyUpdated,
+  language,
 }) => {
   const navigate = useNavigate();
+  const lang = language || localStorage.getItem("app_lang") || "mm";
+
   const [rating, setRating] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -83,9 +86,10 @@ const PropertyDetailModal = ({
   const propType = property.property_type || property.type || "Apartment";
   const isApartment = propType === "Apartment";
 
-  const townText = property.township || "ရန်ကုန်";
+  const cityText = property.city || (lang === "en" ? "Yangon" : "ရန်ကုန်");
+  const townText = property.township || cityText;
   const fullLocationText =
-    unlockedAddress || property.address || townText || "ရန်ကုန်မြို့";
+    unlockedAddress || property.address || townText || cityText;
 
   const parsedArea =
     property.area_sqft !== undefined &&
@@ -96,7 +100,25 @@ const PropertyDetailModal = ({
       : null;
 
   const areaText = parsedArea !== null ? `${parsedArea} sq.ft` : "";
-  const priceUnitText = isRent ? "သိန်း / လ" : "သိန်း";
+  const priceUnitText =
+    lang === "en"
+      ? isRent
+        ? "Lakhs / mo"
+        : "Lakhs"
+      : isRent
+        ? "သိန်း / လ"
+        : "သိန်း";
+
+  const formattedDate = property.created_at
+    ? new Date(property.created_at).toLocaleDateString(
+        lang === "en" ? "en-GB" : "my-MM",
+        {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        },
+      )
+    : "";
 
   const cleanDescription = (property.description || "")
     .replace(/\r\n/g, "\n")
@@ -199,9 +221,11 @@ const PropertyDetailModal = ({
     if (!token) {
       setModalConfig({
         isOpen: true,
-        title: "အကောင့်ဝင်ရန် လိုအပ်ပါသည်",
+        title: lang === "en" ? "Login Required" : "အကောင့်ဝင်ရန် လိုအပ်ပါသည်",
         message:
-          "ကျေးဇူးပြု၍ ဖုန်းနံပါတ်နှင့် လိပ်စာ ကြည့်ရှုရန် အကောင့်ဝင်ပါ (သို့မဟုတ်) အကောင့်အသစ်ဖွင့်ပါ။",
+          lang === "en"
+            ? "Please log in or sign up to view contact phone and full address."
+            : "ကျေးဇူးပြု၍ ဖုန်းနံပါတ်နှင့် လိပ်စာ ကြည့်ရှုရန် အကောင့်ဝင်ပါ (သို့မဟုတ်) အကောင့်အသစ်ဖွင့်ပါ။",
         type: "info",
       });
       return;
@@ -223,10 +247,12 @@ const PropertyDetailModal = ({
       console.error("Unlock error:", err);
       setModalConfig({
         isOpen: true,
-        title: "လုပ်ဆောင်ချက် မအောင်မြင်ပါ",
+        title: lang === "en" ? "Action Failed" : "လုပ်ဆောင်ချက် မအောင်မြင်ပါ",
         message:
           err.response?.data?.error ||
-          "Coins မလုံလောက်ပါ သို့မဟုတ် အမှားအယွင်းရှိနေပါသည်။",
+          (lang === "en"
+            ? "Insufficient coins or an error occurred."
+            : "Coins မလုံလောက်ပါ သို့မဟုတ် အမှားအယွင်းရှိနေပါသည်။"),
         type: "error",
       });
     } finally {
@@ -239,8 +265,11 @@ const PropertyDetailModal = ({
     if (rating === 0 || rating === "0") {
       setModalConfig({
         isOpen: true,
-        title: "အချက်အလက် လိုအပ်နေပါသည်",
-        message: "ကျေးဇူးပြု၍ ကြယ်ပွင့် (Rating) ရွေးချယ်ပါ။",
+        title: lang === "en" ? "Selection Required" : "အချက်အလက် လိုအပ်နေပါသည်",
+        message:
+          lang === "en"
+            ? "Please select a star rating."
+            : "ကျေးဇူးပြု၍ ကြယ်ပွင့် (Rating) ရွေးချယ်ပါ။",
         type: "warning",
       });
       return;
@@ -252,8 +281,11 @@ const PropertyDetailModal = ({
       });
       setModalConfig({
         isOpen: true,
-        title: "အောင်မြင်ပါသည်။",
-        message: "Rating ပေးခြင်း အောင်မြင်ပါသည်။",
+        title: lang === "en" ? "Success" : "အောင်မြင်ပါသည်။",
+        message:
+          lang === "en"
+            ? "Your rating has been submitted."
+            : "Rating ပေးခြင်း အောင်မြင်ပါသည်။",
         type: "success",
       });
       if (typeof onPropertyUpdated === "function") {
@@ -264,8 +296,10 @@ const PropertyDetailModal = ({
       console.error("Failed to submit rating", err);
       setModalConfig({
         isOpen: true,
-        title: "အမှားအယွင်း ရှိနေပါသည်",
-        message: err.response?.data?.error || "Rating ပေး၍ မရပါ။",
+        title: lang === "en" ? "Error" : "အမှားအယွင်း ရှိနေပါသည်",
+        message:
+          err.response?.data?.error ||
+          (lang === "en" ? "Unable to submit rating." : "Rating ပေး၍ မရပါ။"),
         type: "error",
       });
     }
@@ -294,7 +328,11 @@ const PropertyDetailModal = ({
                   alt={property.title}
                   onClick={() => handleOpenFullscreen(currentImageIndex)}
                   className="w-full h-full object-cover hover:scale-105 transition duration-500"
-                  title="ပုံကို နှိပ်၍ အကြီးကြည့်ရန်"
+                  title={
+                    lang === "en"
+                      ? "Click to view fullscreen"
+                      : "ပုံကို နှိပ်၍ အကြီးကြည့်ရန်"
+                  }
                 />
 
                 {property.images.length > 1 && (
@@ -320,7 +358,7 @@ const PropertyDetailModal = ({
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-slate-400 font-medium bg-slate-100">
-                🏠 No Image Available
+                🏠 {lang === "en" ? "No Image Available" : "ဓာတ်ပုံ မရှိသေးပါ"}
               </div>
             )}
 
@@ -332,7 +370,13 @@ const PropertyDetailModal = ({
                     : "bg-emerald-600 text-white"
                 }`}
               >
-                {isRent ? "🏠 အငှား (For Rent)" : "🏷️ အရောင်း (For Sale)"}
+                {isRent
+                  ? lang === "en"
+                    ? "🏠 For Rent"
+                    : "🏠 အငှား (For Rent)"
+                  : lang === "en"
+                    ? "🏷️ For Sale"
+                    : "🏷️ အရောင်း (For Sale)"}
               </span>
               <span className="bg-slate-900/75 text-white text-xs px-3 py-1.5 rounded-full font-semibold backdrop-blur-sm">
                 {propType}
@@ -347,17 +391,80 @@ const PropertyDetailModal = ({
             </button>
           </div>
 
+          {/* Thumbnail Strip */}
+          {property.images && property.images.length > 1 && (
+            <div className="px-6 pt-3 pb-1 bg-slate-50 border-b border-slate-200/70 flex items-center gap-2 overflow-x-auto">
+              {property.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrentImageIndex(idx)}
+                  className={`w-16 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition cursor-pointer ${
+                    currentImageIndex === idx
+                      ? "border-emerald-600 ring-2 ring-emerald-200"
+                      : "border-transparent opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  <img
+                    src={getImageUrl(img)}
+                    alt={`${property.title} ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Property Details Content */}
           <div className="p-6 space-y-5">
+            {/* Breadcrumb Path */}
+            <div className="text-[11px] font-medium text-slate-500 flex flex-wrap items-center gap-1.5 bg-slate-100/80 px-3 py-1.5 rounded-lg">
+              <span>{lang === "en" ? "Home" : "ပင်မ"}</span>
+              <span>›</span>
+              <span>
+                {isRent
+                  ? lang === "en"
+                    ? "For Rent"
+                    : "ငှားရန်"
+                  : lang === "en"
+                    ? "For Sale"
+                    : "ရောင်းရန်"}
+              </span>
+              <span>›</span>
+              <span>{cityText}</span>
+              {property.township && (
+                <>
+                  <span>›</span>
+                  <span className="text-slate-700 font-semibold">
+                    {property.township}
+                  </span>
+                </>
+              )}
+              <span>›</span>
+              <span className="text-emerald-700 font-semibold">{propType}</span>
+            </div>
+
             <div className="flex justify-between items-start gap-3">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-900">
                   {property.title}
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  📍 မြို့နယ်:{" "}
-                  <span className="font-bold text-slate-700">{townText}</span> |
-                  ပို့စ်အမှတ်: #{property.id}
+                  📍 {lang === "en" ? "Township" : "မြို့နယ်"}:{" "}
+                  <span className="font-bold text-slate-700">{townText}</span> |{" "}
+                  {lang === "en" ? "Listing ID" : "ပို့စ်အမှတ်"}: #{property.id}
+                  {formattedDate && (
+                    <>
+                      {" "}
+                      |{" "}
+                      <span>
+                        {lang === "en" ? "Posted" : "တင်ထားသည့်ရက်"}:{" "}
+                        <strong className="text-slate-600">
+                          {formattedDate}
+                        </strong>
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -367,7 +474,13 @@ const PropertyDetailModal = ({
                   onClick={handleCopyPost}
                   className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition cursor-pointer"
                 >
-                  {copied ? "✅ Copied!" : "📋 Copy Post"}
+                  {copied
+                    ? lang === "en"
+                      ? "✅ Copied!"
+                      : "✅ Copied!"
+                    : lang === "en"
+                      ? "📋 Copy Post"
+                      : "📋 Copy Post"}
                 </button>
                 <span
                   className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
@@ -385,7 +498,7 @@ const PropertyDetailModal = ({
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-400 font-medium uppercase">
-                  💰 ဈေးနှုန်း
+                  💰 {lang === "en" ? "Price" : "ဈေးနှုန်း"}
                 </p>
                 <h3 className="text-emerald-600 font-extrabold text-2xl mt-0.5">
                   {property.price}{" "}
@@ -402,21 +515,22 @@ const PropertyDetailModal = ({
                   </span>
                 </p>
                 <p className="text-xs font-extrabold text-slate-700">
-                  👀 {property.views || 0} ဦးကြည့်
+                  👀 {property.views || 0} {lang === "en" ? "views" : "ဦးကြည့်"}
                 </p>
               </div>
             </div>
 
-            {/* Key Highlights (Broker Format) */}
+            {/* Key Highlights */}
             <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200/80 space-y-2.5 text-sm text-slate-800">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                အဓိက အချက်အလက်များ
+                {lang === "en" ? "Key Property Details" : "အဓိက အချက်အလက်များ"}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="bg-white p-3 rounded-xl border border-slate-200/70">
                   <span className="text-xs text-slate-400 block">
-                    📍 နေရာ / မြို့နယ်
+                    📍{" "}
+                    {lang === "en" ? "Location / Township" : "နေရာ / မြို့နယ်"}
                   </span>
                   <span className="font-bold text-slate-800">
                     {unlockedAddress || property.address
@@ -428,7 +542,7 @@ const PropertyDetailModal = ({
                 {areaText && (
                   <div className="bg-white p-3 rounded-xl border border-slate-200/70">
                     <span className="text-xs text-slate-400 block">
-                      📐 အကျယ် (Area)
+                      📐 {lang === "en" ? "Area" : "အကျယ် (Area)"}
                     </span>
                     <span className="font-bold text-slate-800">{areaText}</span>
                   </div>
@@ -436,19 +550,30 @@ const PropertyDetailModal = ({
 
                 <div className="bg-white p-3 rounded-xl border border-slate-200/70">
                   <span className="text-xs text-slate-400 block">
-                    🏷️ အမျိုးအစား
+                    🏷️ {lang === "en" ? "Category" : "အမျိုးအစား"}
                   </span>
                   <span className="font-bold text-slate-800">
-                    {propType} — {isRent ? "အငှား" : "အရောင်း"}
+                    {propType} —{" "}
+                    {isRent
+                      ? lang === "en"
+                        ? "For Rent"
+                        : "အငှား"
+                      : lang === "en"
+                        ? "For Sale"
+                        : "အရောင်း"}
                   </span>
                 </div>
 
                 <div className="bg-white p-3 rounded-xl border border-slate-200/70">
                   <span className="text-xs text-slate-400 block">
-                    📄 ပိုင်ဆိုင်မှု စာရွက်စာတမ်း
+                    📄{" "}
+                    {lang === "en"
+                      ? "Ownership Document"
+                      : "ပိုင်ဆိုင်မှု စာရွက်စာတမ်း"}
                   </span>
                   <span className="font-bold text-slate-800">
-                    {property.ownership_document || "ဂရန်"}
+                    {property.ownership_document ||
+                      (lang === "en" ? "Grant" : "ဂရန်")}
                   </span>
                 </div>
               </div>
@@ -456,7 +581,10 @@ const PropertyDetailModal = ({
               {property.building_status && isApartment && (
                 <div className="bg-white p-3 rounded-xl border border-slate-200/70">
                   <span className="text-xs text-slate-400 block">
-                    🏢 အဆောက်အအုံ အခြေအနေ (BCC / လူနေထိုင်ခွင့်)
+                    🏢{" "}
+                    {lang === "en"
+                      ? "Building Status (BCC)"
+                      : "အဆောက်အအုံ အခြေအနေ (BCC / လူနေထိုင်ခွင့်)"}
                   </span>
                   <span className="font-bold text-slate-800">
                     {property.building_status}
@@ -468,19 +596,27 @@ const PropertyDetailModal = ({
             {/* Detailed Description */}
             <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-200/70 space-y-1.5">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                🏡 အိမ်အချက်အလက် / အသေးစိတ် ဖော်ပြချက်
+                🏡{" "}
+                {lang === "en"
+                  ? "Property Description"
+                  : "အိမ်အချက်အလက် / အသေးစိတ် ဖော်ပြချက်"}
               </div>
               <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line">
-                {cleanDescription || "အသေးစိတ် ဖော်ပြချက် မရှိပါ။"}
+                {cleanDescription ||
+                  (lang === "en"
+                    ? "No description provided."
+                    : "အသေးစိတ် ဖော်ပြချက် မရှိပါ။")}
               </p>
             </div>
 
-            {/* 📞 Contact & Address Section */}
+            {/* Contact & Address Section */}
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 p-5 rounded-2xl space-y-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-emerald-900 text-sm flex items-center gap-1.5">
-                  <span>📞</span> အကျိုးဆောင် / ပိုင်ရှင် ဆက်သွယ်ရန်
-                  ဖုန်းနံပါတ်နှင့် လိပ်စာ
+                  <span>📞</span>{" "}
+                  {lang === "en"
+                    ? "Agent / Owner Contact & Address"
+                    : "အကျိုးဆောင် / ပိုင်ရှင် ဆက်သွယ်ရန် ဖုန်းနံပါတ်နှင့် လိပ်စာ"}
                 </h3>
               </div>
 
@@ -488,7 +624,9 @@ const PropertyDetailModal = ({
                 <div className="bg-white p-4 rounded-xl border border-emerald-300 space-y-2 shadow-sm animate-fadeIn">
                   <div>
                     <p className="text-xs text-slate-400 font-medium">
-                      ဆက်သွယ်ရန် ဖုန်းနံပါတ်
+                      {lang === "en"
+                        ? "Contact Phone"
+                        : "ဆက်သွယ်ရန် ဖုန်းနံပါတ်"}
                     </p>
                     <a
                       href={`tel:${unlockedPhone}`}
@@ -499,7 +637,9 @@ const PropertyDetailModal = ({
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 font-medium">
-                      တိကျသည့် လိပ်စာ အပြည့်အစုံ
+                      {lang === "en"
+                        ? "Full Address"
+                        : "တိကျသည့် လိပ်စာ အပြည့်အစုံ"}
                     </p>
                     <p className="text-sm font-semibold text-slate-800">
                       📍 {fullLocationText}
@@ -510,15 +650,16 @@ const PropertyDetailModal = ({
                       href={`tel:${unlockedPhone}`}
                       className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-md"
                     >
-                      ဖုန်းခေါ်ဆိုရန်
+                      {lang === "en" ? "Call Now" : "ဖုန်းခေါ်ဆိုရန်"}
                     </a>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-2 space-y-2">
                   <p className="text-xs text-slate-500">
-                    အကျိုးဆောင်၏ ဆက်သွယ်ရန် ဖုန်းနံပါတ်နှင့် တိကျသည့် လိပ်စာကို
-                    ကြည့်ရှုရန် အောက်ပါခလုတ်ကို နှိပ်ပါ။
+                    {lang === "en"
+                      ? "Click below to unlock the contact phone number and full address."
+                      : "အကျိုးဆောင်၏ ဆက်သွယ်ရန် ဖုန်းနံပါတ်နှင့် တိကျသည့် လိပ်စာကို ကြည့်ရှုရန် အောက်ပါခလုတ်ကို နှိပ်ပါ။"}
                   </p>
                   <button
                     onClick={handleUnlockContact}
@@ -527,8 +668,12 @@ const PropertyDetailModal = ({
                   >
                     <span>🔑</span>{" "}
                     {unlocking
-                      ? "ဖွင့်လှစ်နေပါသည်..."
-                      : "ဖုန်းနံပါတ်နှင့် လိပ်စာ အပြည့်အစုံ ကြည့်မည်"}
+                      ? lang === "en"
+                        ? "Unlocking..."
+                        : "ဖွင့်လှစ်နေပါသည်..."
+                      : lang === "en"
+                        ? "Unlock Phone & Full Address"
+                        : "ဖုန်းနံပါတ်နှင့် လိပ်စာ အပြည့်အစုံ ကြည့်မည်"}
                   </button>
                 </div>
               )}
@@ -537,7 +682,10 @@ const PropertyDetailModal = ({
             {/* Rating Section */}
             <div className="border-t border-slate-200 pt-4 space-y-3">
               <h3 className="font-bold text-slate-800 text-sm">
-                ⭐ ဤပို့စ်နှင့် ပတ်သက်၍ သုံးသပ်ချက် (Rating) ပေးရန်
+                ⭐{" "}
+                {lang === "en"
+                  ? "Rate This Listing"
+                  : "ဤပို့စ်နှင့် ပတ်သက်၍ သုံးသပ်ချက် (Rating) ပေးရန်"}
               </h3>
               <form
                 onSubmit={handleRatingSubmit}
@@ -548,18 +696,30 @@ const PropertyDetailModal = ({
                   onChange={(e) => setRating(e.target.value)}
                   className="flex-1 border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                 >
-                  <option value="0">ကြယ်ပွင့် ရွေးချယ်ပါ</option>
-                  <option value="5">⭐⭐⭐⭐⭐ (အကောင်းဆုံး)</option>
-                  <option value="4">⭐⭐⭐⭐ (ကောင်း)</option>
-                  <option value="3">⭐⭐⭐ (သင့်တော်)</option>
-                  <option value="2">⭐⭐ (အားနည်း)</option>
-                  <option value="1">⭐ (မကောင်းပါ)</option>
+                  <option value="0">
+                    {lang === "en" ? "Select rating" : "ကြယ်ပွင့် ရွေးချယ်ပါ"}
+                  </option>
+                  <option value="5">
+                    ⭐⭐⭐⭐⭐ {lang === "en" ? "(Excellent)" : "(အကောင်းဆုံး)"}
+                  </option>
+                  <option value="4">
+                    ⭐⭐⭐⭐ {lang === "en" ? "(Good)" : "(ကောင်း)"}
+                  </option>
+                  <option value="3">
+                    ⭐⭐⭐ {lang === "en" ? "(Fair)" : "(သင့်တော်)"}
+                  </option>
+                  <option value="2">
+                    ⭐⭐ {lang === "en" ? "(Poor)" : "(အားနည်း)"}
+                  </option>
+                  <option value="1">
+                    ⭐ {lang === "en" ? "(Bad)" : "(မကောင်းပါ)"}
+                  </option>
                 </select>
                 <button
                   type="submit"
                   className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-5 py-3 rounded-xl transition shadow-md"
                 >
-                  Rating ပေးမည်
+                  {lang === "en" ? "Submit Rating" : "Rating ပေးမည်"}
                 </button>
               </form>
             </div>
@@ -621,7 +781,10 @@ const PropertyDetailModal = ({
         type={modalConfig.type}
         onClose={() => {
           setModalConfig({ ...modalConfig, isOpen: false });
-          if (modalConfig.title === "အကောင့်ဝင်ရန် လိုအပ်ပါသည်") {
+          if (
+            modalConfig.title === "အကောင့်ဝင်ရန် လိုအပ်ပါသည်" ||
+            modalConfig.title === "Login Required"
+          ) {
             onClose();
             navigate("/login");
           }
