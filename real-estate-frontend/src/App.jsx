@@ -35,6 +35,8 @@ function App() {
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
+  const [brokenImageKeys, setBrokenImageKeys] = useState({});
+
   // 🌐 Language & Phase 1 Category Filter States
   const [language, setLanguage] = useState(
     localStorage.getItem("app_lang") || "mm",
@@ -183,6 +185,11 @@ function App() {
       isMounted = false;
     };
   }, []);
+
+  // ✅ Route ပြောင်းတိုင်း page အပေါ်ဆုံး ပြန်တက်စေရန် သပ်သပ်ထည့်သော useEffect
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [location.pathname]);
 
   const isAdmin =
     isAuthenticated && user && (user.role === "admin" || user.isAdmin);
@@ -413,7 +420,7 @@ function App() {
           </marquee>
         </div>
 
-        <main className="max-w-7xl mx-auto p-6 space-y-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6">
           <Suspense
             fallback={
               <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-sm text-slate-500">
@@ -422,7 +429,11 @@ function App() {
             }
           >
             {location.pathname === "/agents" ? (
-              <AgentsPage properties={activeProperties} language={language} />
+              <AgentsPage
+                properties={activeProperties}
+                language={language}
+                onSelectProperty={handleCardClick}
+              />
             ) : location.pathname === "/wanted" ? (
               <WantedListingsPage
                 language={language}
@@ -576,7 +587,7 @@ function App() {
                   <h2 className="text-xl font-bold text-slate-800 mb-4">
                     {t.mapTitle}
                   </h2>
-                  <div className="rounded-xl overflow-hidden h-[450px] w-full">
+                  <div className="rounded-xl overflow-hidden h-75 sm:h-105 lg:h-112.5 w-full">
                     <PropertyMap
                       properties={filteredProperties}
                       onSelectProperty={handleCardClick}
@@ -658,11 +669,23 @@ function App() {
                               className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col justify-between"
                             >
                               <div className="h-48 bg-slate-900 relative overflow-hidden">
-                                {images.length > 0 && images[currentIndex] ? (
+                                {images.length > 0 &&
+                                images[currentIndex] &&
+                                !brokenImageKeys[
+                                  `${item.id}-${currentIndex}`
+                                ] ? (
                                   <>
                                     <img
                                       src={imgUrl}
                                       alt={item.title}
+                                      loading="lazy"
+                                      decoding="async"
+                                      onError={() =>
+                                        setBrokenImageKeys((prev) => ({
+                                          ...prev,
+                                          [`${item.id}-${currentIndex}`]: true,
+                                        }))
+                                      }
                                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                                     />
 
@@ -670,6 +693,7 @@ function App() {
                                       <>
                                         <button
                                           type="button"
+                                          aria-label="Previous image"
                                           onClick={(e) =>
                                             handlePrevImage(
                                               e,
@@ -677,12 +701,13 @@ function App() {
                                               images.length,
                                             )
                                           }
-                                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
+                                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm cursor-pointer"
                                         >
                                           ❮
                                         </button>
                                         <button
                                           type="button"
+                                          aria-label="Next image"
                                           onClick={(e) =>
                                             handleNextImage(
                                               e,
@@ -690,7 +715,7 @@ function App() {
                                               images.length,
                                             )
                                           }
-                                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm"
+                                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-7 h-7 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition text-sm cursor-pointer"
                                         >
                                           ❯
                                         </button>
