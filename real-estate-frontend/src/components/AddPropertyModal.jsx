@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import API from "../api/axios";
 import { useSelector } from "react-redux";
 import { createProperty } from "../api/propertyApi";
@@ -21,31 +21,33 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   const [userCoins, setUserCoins] = useState(0);
 
   useEffect(() => {
-    if (isOpen) {
-      const fetchLatestUserData = async () => {
-        try {
-          const response = await API.get("/auth/me");
-          if (response.data.success && response.data.user) {
-            setUserCoins(response.data.user.coins ?? 0);
+    if (!isOpen) return;
 
-            const localUser = JSON.parse(localStorage.getItem("user") || "{}");
-            localUser.coins = response.data.user.coins;
-            localStorage.setItem("user", JSON.stringify(localUser));
-          }
-        } catch (err) {
-          console.error("Failed to fetch latest user coins:", err);
-          const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-          setUserCoins(
-            storedUser.coins !== undefined
-              ? storedUser.coins
-              : (user?.coins ?? 0),
-          );
+    const fetchLatestUserData = async () => {
+      try {
+        const response = await API.get("/auth/me");
+        if (response.data.success && response.data.user) {
+          const latestCoins = response.data.user.coins ?? 0;
+          setUserCoins(latestCoins);
+
+          const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+          localUser.coins = latestCoins;
+          localStorage.setItem("user", JSON.stringify(localUser));
         }
-      };
+      } catch (err) {
+        console.error("Failed to fetch latest user coins:", err);
+        const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+        setUserCoins(
+          storedUser.coins !== undefined
+            ? storedUser.coins
+            : (user?.coins ?? 0),
+        );
+      }
+    };
 
-      fetchLatestUserData();
-    }
-  }, [isOpen, user]);
+    fetchLatestUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const requiredCoins = 30;
   const hasEnoughCoins = userCoins >= requiredCoins;
@@ -222,6 +224,13 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
           : dimLine;
       }
 
+      const resolvedStatus =
+        formData.listing_type === "Rent"
+          ? "For Rent"
+          : formData.listing_type === "Pre-sale"
+            ? "Pre-sale"
+            : "For Sale";
+
       const uploadData = new FormData();
       uploadData.append("title", formData.title);
       uploadData.append("description", finalDescription);
@@ -234,10 +243,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
 
       uploadData.append("property_type", formData.type);
       uploadData.append("listing_type", formData.listing_type);
-      uploadData.append(
-        "status",
-        formData.listing_type === "Rent" ? "For Rent" : "For Sale",
-      );
+      uploadData.append("status", resolvedStatus);
 
       uploadData.append("township", formData.township || "Bahan");
       uploadData.append("address", formData.address || formData.township || "");
@@ -248,7 +254,9 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
       uploadData.append("ownership_document", formData.ownership_document);
       uploadData.append(
         "building_status",
-        ["Apartment", "Commercial", "Restaurant"].includes(formData.type)
+        ["Apartment", "Condo", "Commercial", "Restaurant"].includes(
+          formData.type,
+        )
           ? formData.building_status
           : "လူနေထိုင်ခွင့် အလိုလိုပြီးသား (ဂရန်/ပါမစ်)",
       );
@@ -259,12 +267,16 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
       }
 
       await createProperty(uploadData);
-      setLoading(false);
-      onPropertyAdded();
-      onClose();
+      if (typeof onPropertyAdded === "function") {
+        onPropertyAdded();
+      }
+      if (typeof onClose === "function") {
+        onClose();
+      }
     } catch (err) {
-      setLoading(false);
       setError(err.response?.data?.error || "Failed to post property");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -281,7 +293,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold"
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
           >
             ✕
           </button>
@@ -356,7 +368,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4 items-stretch">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
               <div className="flex flex-col justify-between">
                 <label className="block text-sm font-medium text-gray-700 leading-snug">
                   Listing Type (ကြော်ငြာအမျိုးအစား)
@@ -369,6 +381,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 >
                   <option value="Sale">🏷️ အရောင်း (For Sale)</option>
                   <option value="Rent">🏠 အငှား (For Rent)</option>
+                  <option value="Pre-sale">🏗️ ကြိုပွိုင့် (Pre-sale)</option>
                 </select>
               </div>
 
@@ -382,9 +395,8 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 cursor-pointer"
                 >
-                  <option value="Apartment">
-                    Apartment / Condo (တိုက်ခန်း)
-                  </option>
+                  <option value="Apartment">Apartment (တိုက်ခန်း)</option>
+                  <option value="Condo">Condo (ကွန်ဒို)</option>
                   <option value="Land">Land Plot (မြေကွက်)</option>
                   <option value="Villa">Villa / House (လုံးချင်းအိမ်)</option>
                   <option value="Commercial">
@@ -486,7 +498,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 <button
                   type="button"
                   onClick={handleGetLocation}
-                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1"
+                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1 cursor-pointer"
                 >
                   <span>📍</span> ကျွန်ုပ်ရှိရာနေရာ (Auto-Detect)
                 </button>
@@ -535,14 +547,18 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="ownership_document"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Ownership Document (ပိုင်ဆိုင်မှု စာရွက်စာတမ်း)
               </label>
               <select
+                id="ownership_document"
                 name="ownership_document"
                 value={formData.ownership_document}
                 onChange={handleChange}
-                className="w-full max-w-full truncate border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 cursor-pointer focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား">
                   ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား
@@ -575,7 +591,7 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
               </select>
             </div>
 
-            {["Apartment", "Commercial", "Restaurant"].includes(
+            {["Apartment", "Condo", "Commercial", "Restaurant"].includes(
               formData.type,
             ) && (
               <div>
@@ -821,4 +837,4 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   );
 };
 
-export default AddPropertyModal;
+export default React.memo(AddPropertyModal);

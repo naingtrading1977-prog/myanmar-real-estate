@@ -1,31 +1,32 @@
 import { useState, useEffect } from "react";
 import { updateProperty } from "../api/propertyApi";
 
+const INITIAL_FORM = {
+  title: "",
+  description: "",
+  price: "",
+  type: "Apartment",
+  listing_type: "Sale",
+  township: "",
+  lat: "",
+  lng: "",
+  contact_phone: "",
+  ownership_document: "ဂရန် (Grant)",
+  building_status: "BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး",
+};
+
 const EditPropertyModal = ({
   isOpen,
   onClose,
   property,
   onPropertyUpdated,
+  language,
 }) => {
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    price: "",
-    type: "Apartment",
-    listing_type: "Sale", // 🏷️ အရောင်း (Sale) သို့မဟုတ် အငှား (Rent)
-    township: "", // 📍 တည်နေရာ (Township) အတွက် State
-    lat: "",
-    lng: "",
-    contact_phone: "",
-    ownership_document: "ဂရန် (Grant)",
-    building_status: "BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး",
-  });
-
+  const [formData, setFormData] = useState(INITIAL_FORM);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Property ဒေတာ ရှိလာပါက Form တွင် အလိုအလျောက် ထည့်ပေးရန် (Pre-fill)
   useEffect(() => {
     if (property) {
       setFormData({
@@ -35,7 +36,7 @@ const EditPropertyModal = ({
         type: property.property_type || property.type || "Apartment",
         listing_type:
           property.listing_type ||
-          (property.status === "For Rent" ? "Rent" : "Sale"), // 🏷️ Listing Type ထည့်သွင်းခြင်း
+          (property.status === "For Rent" ? "Rent" : "Sale"),
         township: property.township || property.address || "",
         lat: property.latitude || property.lat || "",
         lng: property.longitude || property.lng || "",
@@ -50,7 +51,8 @@ const EditPropertyModal = ({
   if (!isOpen || !property) return null;
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e) => {
@@ -63,49 +65,64 @@ const EditPropertyModal = ({
     setError(null);
 
     try {
+      const resolvedStatus =
+        formData.listing_type === "Rent"
+          ? "For Rent"
+          : formData.listing_type === "Pre-sale"
+            ? "Pre-sale"
+            : "For Sale";
+
       const uploadData = new FormData();
-      uploadData.append("title", formData.title);
+      uploadData.append("title", formData.title.trim());
       uploadData.append("description", formData.description);
       uploadData.append("price", formData.price);
       uploadData.append("property_type", formData.type);
-      uploadData.append("listing_type", formData.listing_type); // 🏷️ Listing Type ပို့ရန်
-      uploadData.append(
-        "status",
-        formData.listing_type === "Rent" ? "For Rent" : "For Sale",
-      );
-      uploadData.append("township", formData.township);
+      uploadData.append("listing_type", formData.listing_type);
+      uploadData.append("status", resolvedStatus);
+      uploadData.append("township", formData.township.trim());
       uploadData.append("latitude", formData.lat);
       uploadData.append("longitude", formData.lng);
-      uploadData.append("contact_phone", formData.contact_phone);
+      uploadData.append("contact_phone", formData.contact_phone.trim());
       uploadData.append("ownership_document", formData.ownership_document);
       uploadData.append("building_status", formData.building_status);
 
-      // ပုံသစ်များ/Document ဖိုင်များ ပါလာပါက တင်ရန်
       for (let i = 0; i < files.length; i++) {
         uploadData.append("images", files[i]);
       }
 
       await updateProperty(property.id, uploadData);
-      setLoading(false);
-      onPropertyUpdated(); // စာရင်း အသစ်ပြန်ဖြစ်ရန်
-      onClose();
+      if (typeof onPropertyUpdated === "function") {
+        onPropertyUpdated();
+      }
+      if (typeof onClose === "function") {
+        onClose();
+      }
     } catch (err) {
-      setLoading(false);
       setError(err.response?.data?.error || "Failed to update property");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[9999] flex justify-center items-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-black/50 z-[9999] flex justify-center items-center p-4 backdrop-blur-xs"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+      >
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold"
+          aria-label="Close modal"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
         >
           ✕
         </button>
 
-        <h2 className="text-2xl font-bold mb-4 text-slate-800">
+        <h2 className="text-xl sm:text-2xl font-bold mb-4 text-slate-800">
           Edit Property
         </h2>
 
@@ -126,12 +143,11 @@ const EditPropertyModal = ({
               required
               value={formData.title}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
 
-          {/* 🏷️ Listing Type (အရောင်း/အငှား) နှင့် Property Type */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Listing Type (ကြော်ငြာအမျိုးအစား)
@@ -140,12 +156,14 @@ const EditPropertyModal = ({
                 name="listing_type"
                 value={formData.listing_type}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold text-emerald-700 bg-emerald-50/50"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-semibold text-emerald-700 bg-emerald-50/50"
               >
                 <option value="Sale">🏷️ အရောင်း (For Sale)</option>
                 <option value="Rent">🏠 အငှား (For Rent)</option>
+                <option value="Pre-sale">🏗️ ကြိုပွိုင့် (Pre-sale)</option>
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Type (အမျိုးအစား)
@@ -154,16 +172,21 @@ const EditPropertyModal = ({
                 name="type"
                 value={formData.type}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               >
-                <option value="Apartment">Apartment / Condo</option>
-                <option value="Land">Land Plot</option>
-                <option value="Villa">Villa / House</option>
+                <option value="Apartment">Apartment (တိုက်ခန်း)</option>
+                <option value="Condo">Condo (ကွန်ဒို)</option>
+                <option value="Land">Land Plot (မြေကွက်)</option>
+                <option value="Villa">Villa / House (လုံးချင်းအိမ်)</option>
+                <option value="Commercial">
+                  Commercial / Office (ဆိုင်ခန်း / ရုံးခန်း)
+                </option>
+                <option value="Restaurant">Restaurant (စားသောက်ဆိုင်)</option>
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Price (
@@ -178,9 +201,10 @@ const EditPropertyModal = ({
                 required
                 value={formData.price}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Township / Location (တည်နေရာ)
@@ -192,13 +216,12 @@ const EditPropertyModal = ({
                 value={formData.township}
                 onChange={handleChange}
                 placeholder="ဥပမာ - တောင်ဒဂုံ"
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
           </div>
 
-          {/* 📍 Latitude နှင့် Longitude ထည့်ရန် Field များ ပြန်လည်ထည့်သွင်းပေးထားပါသည် */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Latitude (မြေပုံ မျဉ်းပြိုင်)
@@ -211,9 +234,10 @@ const EditPropertyModal = ({
                 value={formData.lat}
                 onChange={handleChange}
                 placeholder="e.g. 16.8409"
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Longitude (မြေပုံ မျဉ်းထောင်)
@@ -226,13 +250,12 @@ const EditPropertyModal = ({
                 value={formData.lng}
                 onChange={handleChange}
                 placeholder="e.g. 96.1735"
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
           </div>
 
-          {/* 📞 Contact Phone & 📄 Ownership Document */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Contact Phone (ဆက်သွယ်ရန် ဖုန်း)
@@ -243,7 +266,7 @@ const EditPropertyModal = ({
                 required
                 value={formData.contact_phone}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
 
@@ -255,7 +278,7 @@ const EditPropertyModal = ({
                 name="ownership_document"
                 value={formData.ownership_document}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="ဂရန် (Grant)">ဂရန် (Grant)</option>
                 <option value="ပါမစ် (Permit)">ပါမစ် (Permit)</option>
@@ -270,7 +293,6 @@ const EditPropertyModal = ({
             </div>
           </div>
 
-          {/* 🏢 Building Status (BCC နှင့် လူနေထိုင်ခွင့် အခြေအနေ) */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Building Status (BCC နှင့် လူနေထိုင်ခွင့် အခြေအနေ)
@@ -279,7 +301,7 @@ const EditPropertyModal = ({
               name="building_status"
               value={formData.building_status}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             >
               <option value="BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး">
                 BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး
@@ -305,7 +327,7 @@ const EditPropertyModal = ({
               rows="3"
               value={formData.description}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             ></textarea>
           </div>
 
@@ -325,7 +347,7 @@ const EditPropertyModal = ({
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition duration-200"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition duration-200 cursor-pointer"
           >
             {loading ? "Saving Changes..." : "Save Changes"}
           </button>

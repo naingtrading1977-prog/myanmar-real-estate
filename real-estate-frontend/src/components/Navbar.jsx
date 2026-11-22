@@ -2,6 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CustomModal from "./CustomModal";
 
+const parseStoredUser = () => {
+  try {
+    const raw = localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
 const Navbar = ({
   user,
   isAuthenticated,
@@ -33,7 +42,7 @@ const Navbar = ({
     }
   };
 
-  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const storedUser = parseStoredUser();
   const currentUserName =
     user?.name || storedUser?.name || (lang === "en" ? "User" : "အသုံးပြုသူ");
   const currentUserRole = user?.role || storedUser?.role || "client";
@@ -109,7 +118,9 @@ const Navbar = ({
       currentUserRole === "admin" ||
       (currentUserRole === "agent" && isUserApproved)
     ) {
-      onOpenPostModal();
+      if (typeof onOpenPostModal === "function") {
+        onOpenPostModal();
+      }
     } else {
       setModalConfig({
         isOpen: true,
@@ -316,7 +327,7 @@ const Navbar = ({
               <button
                 type="button"
                 onClick={() => handleToggleLang("mm")}
-                className={`px-1.5 sm:px-2 py-1 rounded-md transition whitespace-nowrap ${
+                className={`px-1.5 sm:px-2 py-1 rounded-md transition whitespace-nowrap cursor-pointer ${
                   lang === "mm"
                     ? "bg-emerald-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -327,7 +338,7 @@ const Navbar = ({
               <button
                 type="button"
                 onClick={() => handleToggleLang("en")}
-                className={`px-1.5 sm:px-2 py-1 rounded-md transition whitespace-nowrap ${
+                className={`px-1.5 sm:px-2 py-1 rounded-md transition whitespace-nowrap cursor-pointer ${
                   lang === "en"
                     ? "bg-emerald-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -340,8 +351,9 @@ const Navbar = ({
             {isAuthenticated ? (
               <>
                 <button
+                  type="button"
                   onClick={handlePostClick}
-                  className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition active:scale-95 flex items-center gap-1 whitespace-nowrap shrink-0"
+                  className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition active:scale-95 flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <span>+</span> {t.postBtn}
                 </button>
@@ -367,16 +379,18 @@ const Navbar = ({
                 </div>
 
                 <button
+                  type="button"
                   onClick={onLogout}
-                  className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm font-medium bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition whitespace-nowrap shrink-0"
+                  className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm font-medium bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   {t.logout}
                 </button>
               </>
             ) : (
               <button
+                type="button"
                 onClick={onOpenAuth}
-                className="px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition whitespace-nowrap shrink-0"
+                className="px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <span className="sm:hidden">{t.authBtnMobile}</span>
                 <span className="hidden sm:inline">{t.authBtnDesktop}</span>
@@ -400,6 +414,9 @@ const Navbar = ({
                 className="relative shrink-0"
                 onMouseEnter={() => {
                   if (hasChildren) setOpenMenu(item.key);
+                }}
+                onMouseLeave={() => {
+                  if (hasChildren) setOpenMenu(null);
                 }}
               >
                 {hasChildren ? (
