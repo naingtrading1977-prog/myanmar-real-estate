@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import API from "../api/axios";
 
 const STORAGE_KEY = "wwa_wanted_listings_v1";
@@ -20,6 +20,7 @@ const WantedListingsPage = ({
   onOpenAuth,
 }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const lang = language || localStorage.getItem("app_lang") || "mm";
   const defaultCity = lang === "en" ? "Yangon" : "ရန်ကုန်";
 
@@ -101,26 +102,49 @@ const WantedListingsPage = ({
     }
   };
 
-  const openModalWithChoice = (type = "") => {
-    if (!hasToken) {
-      setAlertModal({
-        isOpen: true,
-        title: t.authRequiredTitle,
-        message: t.authRequiredMsg,
-        type: "warning",
-        showAuthAction: typeof onOpenAuth === "function",
-      });
-      return;
+  const openModalWithChoice = useCallback(
+    (type = "") => {
+      if (!hasToken) {
+        setAlertModal({
+          isOpen: true,
+          title: t.authRequiredTitle,
+          message: t.authRequiredMsg,
+          type: "warning",
+          showAuthAction: typeof onOpenAuth === "function",
+        });
+        return;
+      }
+
+      if (type === "Buy" || type === "Rent") {
+        setFormData((prev) => ({ ...prev, request_type: type }));
+        setPostStep("form");
+      } else {
+        setPostStep("choose");
+      }
+      setIsPostModalOpen(true);
+    },
+    [hasToken, onOpenAuth, t.authRequiredTitle, t.authRequiredMsg],
+  );
+
+  // Sync URL query params (?type=Buy|Rent and ?openPost=1)
+  useEffect(() => {
+    const queryType = searchParams.get("type");
+    const shouldOpenPost = searchParams.get("openPost") === "1";
+
+    if (queryType === "Buy" || queryType === "Rent") {
+      setFilterType(queryType);
+    } else if (!queryType) {
+      setFilterType("");
     }
 
-    if (type === "Buy" || type === "Rent") {
-      setFormData((prev) => ({ ...prev, request_type: type }));
-      setPostStep("form");
-    } else {
-      setPostStep("choose");
+    if (shouldOpenPost) {
+      openModalWithChoice(queryType || "");
+
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("openPost");
+      setSearchParams(nextParams, { replace: true });
     }
-    setIsPostModalOpen(true);
-  };
+  }, [searchParams, setSearchParams, openModalWithChoice]);
 
   const getCategoryLabel = (cat) => {
     const map = {
