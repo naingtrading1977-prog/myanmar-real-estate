@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import CustomModal from "./CustomModal";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5002/api";
@@ -8,6 +9,22 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [error, setError] = useState(null);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "success",
+  });
+
+  const showAlert = (message, title = "အောင်မြင်ပါသည်", type = "success") => {
+    setModalConfig({
+      isOpen: true,
+      title,
+      message,
+      type,
+    });
+  };
 
   // ➕ Create User Modal States
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -45,7 +62,9 @@ const AdminDashboard = () => {
   const [propertyForm, setPropertyForm] = useState({
     title: "",
     price: "",
+    property_type: "Apartment",
     status: "Available",
+    description: "",
   });
 
   const [selectedProofImg, setSelectedProofImg] = useState(null);
@@ -203,13 +222,25 @@ const AdminDashboard = () => {
           coins: 100,
           is_approved: true,
         });
-        alert("User အကောင့်အသစ် ဖန်တီးပြီးပါပြီ။");
+        showAlert(
+          "User အကောင့်အသစ် ဖန်တီးပြီးပါပြီ။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
       } else {
-        alert(result.error || "User ဖန်တီးရန် မအောင်မြင်ပါ။");
+        showAlert(
+          result.error || "User ဖန်တီးရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Server error ဖြစ်ပွားနေပါသည်။");
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     } finally {
       setUserSubmitting(false);
     }
@@ -260,13 +291,25 @@ const AdminDashboard = () => {
           ),
         );
         setEditUserModal(null);
-        alert("User အချက်အလက်များ ပြင်ဆင်ပြီးပါပြီ။");
+        showAlert(
+          "User အချက်အလက်များ ပြင်ဆင်ပြီးပါပြီ။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
       } else {
-        alert(result.error || "User ပြင်ဆင်ရန် မအောင်မြင်ပါ။");
+        showAlert(
+          result.error || "User ပြင်ဆင်ရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Server error ဖြစ်ပွားနေပါသည်။");
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     } finally {
       setUserSubmitting(false);
     }
@@ -306,12 +349,25 @@ const AdminDashboard = () => {
         );
         setSelectedUserForCoins(null);
         setCoinAmount("");
+        showAlert(
+          `Coins လက်ကျန်အား ${updatedCoins} Coins သို့ ပြောင်းလဲပြီးပါပြီ။`,
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
       } else {
-        alert(result.error || "Coins ပြင်ဆင်ရန် မအောင်မြင်ပါ။");
+        showAlert(
+          result.error || "Coins ပြင်ဆင်ရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Server error ဖြစ်ပွားနေပါသည်။");
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -340,12 +396,25 @@ const AdminDashboard = () => {
           ),
         );
         setEditingUser(null);
+        showAlert(
+          "User Role ပြောင်းလဲခြင်း အောင်မြင်ပါသည်။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
       } else {
-        alert(result.error || "Role ပြောင်းလဲရန် မအောင်မြင်ပါ။");
+        showAlert(
+          result.error || "Role ပြောင်းလဲရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Server error ဖြစ်ပွားနေပါသည်။");
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -370,12 +439,27 @@ const AdminDashboard = () => {
             u.id === userId ? { ...u, is_approved: status } : u,
           ),
         );
+        showAlert(
+          status
+            ? "Agent အကောင့်အား အတည်ပြု (Approve) ပြီးပါပြီ။"
+            : "Agent အတည်ပြုချက်အား ပြန်လည်ရုပ်သိမ်း (Revoke) ပြီးပါပြီ။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
       } else {
-        alert(result.error || "အပြောင်းအလဲလုပ်ရန် မအောင်မြင်ပါ။");
+        showAlert(
+          result.error || "အပြောင်းအလဲလုပ်ရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Server error ဖြစ်ပွားနေပါသည်။");
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -398,15 +482,27 @@ const AdminDashboard = () => {
       );
       const result = await response.json();
       if (response.ok && result.success) {
-        alert("Password အသစ် ပြောင်းလဲခြင်း အောင်မြင်ပါသည်။");
         setResetPasswordUser(null);
         setNewPassword("");
+        showAlert(
+          "Password အသစ် ပြောင်းလဲခြင်း အောင်မြင်ပါသည်။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
       } else {
-        alert(result.error || "Password ပြောင်းလဲရန် မအောင်မြင်ပါ။");
+        showAlert(
+          result.error || "Password ပြောင်းလဲရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Server error ဖြစ်ပွားနေပါသည်။");
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -424,12 +520,25 @@ const AdminDashboard = () => {
       const result = await response.json();
       if (response.ok) {
         setUsers((prevUsers) => prevUsers.filter((u) => u.id !== userId));
+        showAlert(
+          "User အကောင့်အား ဖျက်ပစ်ပြီးပါပြီ။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
       } else {
-        alert(result.error || "User ဖျက်ရန် မအောင်မြင်ပါ။");
+        showAlert(
+          result.error || "User ဖျက်ရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Server error ဖြစ်ပွားနေပါသည်။");
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -458,9 +567,25 @@ const AdminDashboard = () => {
             p.id === propertyId ? { ...p, status: newStatus } : p,
           ),
         );
+        showAlert(
+          `ပို့စ်အခြေအနေအား "${newStatus}" သို့ ပြောင်းလဲပြီးပါပြီ။`,
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
+      } else {
+        showAlert(
+          "ပို့စ်အခြေအနေ ပြောင်းလဲရန် မအောင်မြင်ပါ။",
+          "မအောင်မြင်ပါ",
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -473,9 +598,21 @@ const AdminDashboard = () => {
       });
       if (response.ok) {
         setProperties((prev) => prev.filter((p) => p.id !== propertyId));
+        showAlert(
+          "အိမ်ခြံမြေ ပို့စ်အား ဖျက်ပစ်ပြီးပါပြီ။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
+      } else {
+        showAlert("ပို့စ်ဖျက်ရန် မအောင်မြင်ပါ။", "မအောင်မြင်ပါ", "error");
       }
     } catch (err) {
       console.error(err);
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -501,9 +638,21 @@ const AdminDashboard = () => {
           ),
         );
         setEditingProperty(null);
+        showAlert(
+          "Property အချက်အလက်များ ပြင်ဆင်ပြီးပါပြီ။",
+          "အောင်မြင်ပါသည်",
+          "success",
+        );
+      } else {
+        showAlert("Property ပြင်ဆင်ရန် မအောင်မြင်ပါ။", "မအောင်မြင်ပါ", "error");
       }
     } catch (err) {
       console.error(err);
+      showAlert(
+        "Server error ဖြစ်ပွားနေပါသည်။",
+        "အမှားအယွင်း ရှိနေပါသည်",
+        "error",
+      );
     }
   };
 
@@ -867,7 +1016,10 @@ const AdminDashboard = () => {
                                   setPropertyForm({
                                     title: p.title,
                                     price: p.price,
+                                    property_type:
+                                      p.property_type || p.type || "Apartment",
                                     status: p.status || "Available",
+                                    description: p.description || "",
                                   });
                                 }}
                                 className="px-2.5 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white text-xs font-bold rounded-lg transition border border-indigo-200"
@@ -1347,11 +1499,11 @@ const AdminDashboard = () => {
                     အိမ်ခြံမြေ အမျိုးအစား (Type)
                   </label>
                   <select
-                    value={propertyForm.propertyType || "Apartment"}
+                    value={propertyForm.property_type || "Apartment"}
                     onChange={(e) =>
                       setPropertyForm({
                         ...propertyForm,
-                        propertyType: e.target.value,
+                        property_type: e.target.value,
                       })
                     }
                     className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-800 font-medium"
@@ -1359,9 +1511,13 @@ const AdminDashboard = () => {
                     <option value="Apartment">Apartment (တိုက်ခန်း)</option>
                     <option value="Condo">Condo (ကွန်ဒို)</option>
                     <option value="House">House (အိမ်)</option>
+                    <option value="Villa">Villa (လုံးချင်းအိမ်)</option>
                     <option value="Land">Land (ခြံမြေ)</option>
                     <option value="Commercial">
                       Commercial (ဆိုင်ခန်း/ရုံးခန်း)
+                    </option>
+                    <option value="Restaurant">
+                      Restaurant (စားသောက်ဆိုင်)
                     </option>
                   </select>
                 </div>
@@ -1456,6 +1612,14 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      <CustomModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
