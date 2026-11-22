@@ -9,7 +9,11 @@ export const loginUser = createAsyncThunk(
       const response = await API.post("/auth/login", credentials);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || "Login failed");
+      return rejectWithValue(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Login failed",
+      );
     }
   },
 );
@@ -23,19 +27,30 @@ export const registerUser = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.error || "Registration failed",
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Registration failed",
       );
     }
   },
 );
 
-// 🛠️ localStorage မှ user အချက်အလက်ကို JSON အနေဖြင့် ပြန်ဖတ်ရန်
-const storedUser = localStorage.getItem("user");
+const parseStoredUser = () => {
+  try {
+    const raw = localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const initialToken = localStorage.getItem("token") || null;
+const initialUser = parseStoredUser();
 
 const initialState = {
-  user: storedUser ? JSON.parse(storedUser) : null,
-  token: localStorage.getItem("token") || null,
-  isAuthenticated: !!localStorage.getItem("token"),
+  user: initialUser,
+  token: initialToken,
+  isAuthenticated: Boolean(initialToken),
   loading: false,
   error: null,
 };
@@ -48,8 +63,12 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
+      state.error = null;
       localStorage.removeItem("token");
-      localStorage.removeItem("user"); // 🛠️ Logout လုပ်လျှင် user ကိုပါ ဖယ်ရှားရန်
+      localStorage.removeItem("user");
+    },
+    clearAuthError: (state) => {
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
@@ -61,13 +80,18 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.isAuthenticated = true;
+        const nextUser = action.payload?.user ?? null;
+        const nextToken = action.payload?.token ?? null;
+        state.user = nextUser;
+        state.token = nextToken;
+        state.isAuthenticated = Boolean(nextToken);
 
-        // 🛠️ Token အပြင် user object ကိုပါ localStorage တွင် သိမ်းဆည်းခြင်း
-        localStorage.setItem("token", action.payload.token);
-        localStorage.setItem("user", JSON.stringify(action.payload.user));
+        if (nextToken) {
+          localStorage.setItem("token", nextToken);
+        }
+        if (nextUser) {
+          localStorage.setItem("user", JSON.stringify(nextUser));
+        }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -80,13 +104,18 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.isAuthenticated = true;
+        const nextUser = action.payload?.user ?? null;
+        const nextToken = action.payload?.token ?? null;
+        state.user = nextUser;
+        state.token = nextToken;
+        state.isAuthenticated = Boolean(nextToken);
 
-        // 🛠️ Register လုပ်ချိန်တွင်လည်း user object ကိုပါ localStorage သို့ သိမ်းခြင်း
-        localStorage.setItem("token", action.payload.token);
-        localStorage.setItem("user", JSON.stringify(action.payload.user));
+        if (nextToken) {
+          localStorage.setItem("token", nextToken);
+        }
+        if (nextUser) {
+          localStorage.setItem("user", JSON.stringify(nextUser));
+        }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
@@ -95,5 +124,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, clearAuthError } = authSlice.actions;
 export default authSlice.reducer;

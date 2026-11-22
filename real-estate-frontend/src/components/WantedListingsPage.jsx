@@ -4,6 +4,16 @@ import API from "../api/axios";
 
 const STORAGE_KEY = "wwa_wanted_listings_v1";
 
+const INITIAL_FORM = {
+  request_type: "Rent",
+  property_type: "Apartment",
+  township: "",
+  budget: "",
+  contact_name: "",
+  contact_phone: "",
+  notes: "",
+};
+
 const WantedListingsPage = ({
   language,
   isAuthenticated = false,
@@ -11,6 +21,7 @@ const WantedListingsPage = ({
 }) => {
   const navigate = useNavigate();
   const lang = language || localStorage.getItem("app_lang") || "mm";
+  const defaultCity = lang === "en" ? "Yangon" : "ရန်ကုန်";
 
   const [wantedList, setWantedList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -29,14 +40,8 @@ const WantedListingsPage = ({
   });
 
   const [formData, setFormData] = useState({
-    request_type: "Rent",
-    property_type: "Apartment",
-    township: "",
-    city: lang === "en" ? "Yangon" : "ရန်ကုန်",
-    budget: "",
-    contact_name: "",
-    contact_phone: "",
-    notes: "",
+    ...INITIAL_FORM,
+    city: defaultCity,
   });
 
   const t = {
@@ -55,6 +60,7 @@ const WantedListingsPage = ({
     buyLabel: lang === "en" ? "Want to Buy" : "ဝယ်လိုသည်",
     rentLabel: lang === "en" ? "Want to Rent" : "ငှားလိုသည်",
     allCategories: lang === "en" ? "All Categories" : "အမျိုးအစားအားလုံး",
+    resetBtn: lang === "en" ? "Reset" : "ရှင်းရန်",
     searchPlaceholder:
       lang === "en"
         ? "Search township, budget, or notes..."
@@ -85,6 +91,15 @@ const WantedListingsPage = ({
 
   const hasToken =
     Boolean(isAuthenticated) || Boolean(localStorage.getItem("token"));
+
+  const persistLocal = (nextList) => {
+    setWantedList(nextList);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextList));
+    } catch {
+      // ignore storage quota errors
+    }
+  };
 
   const openModalWithChoice = (type = "") => {
     if (!hasToken) {
@@ -118,15 +133,6 @@ const WantedListingsPage = ({
     return map[cat] || cat;
   };
 
-  const persistLocal = (nextList) => {
-    setWantedList(nextList);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextList));
-    } catch {
-      // ignore storage quota errors
-    }
-  };
-
   useEffect(() => {
     let active = true;
 
@@ -137,12 +143,7 @@ const WantedListingsPage = ({
           ? res.data
           : res.data?.data || [];
         if (active) {
-          setWantedList(apiData);
-          try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(apiData));
-          } catch {
-            // ignore storage quota errors
-          }
+          persistLocal(apiData);
         }
         return;
       } catch {
@@ -177,6 +178,8 @@ const WantedListingsPage = ({
     return Array.from(set);
   }, [wantedList]);
 
+  const hasFilter = Boolean(searchTerm.trim() || filterType || filterCategory);
+
   const filteredWanted = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return wantedList.filter((item) => {
@@ -209,7 +212,7 @@ const WantedListingsPage = ({
       request_type: formData.request_type,
       property_type: formData.property_type,
       township: formData.township.trim(),
-      city: formData.city.trim() || (lang === "en" ? "Yangon" : "ရန်ကုန်"),
+      city: (formData.city || "").trim() || defaultCity,
       budget:
         formData.budget.trim() || (lang === "en" ? "Negotiable" : "ညှိနှိုင်း"),
       contact_name:
@@ -221,21 +224,18 @@ const WantedListingsPage = ({
 
     try {
       const res = await API.post("/wanted", payload);
-      const created = res.data?.data || res.data;
-      if (created) {
-        persistLocal([created, ...wantedList]);
-      }
+      const created = res.data?.data ||
+        res.data || {
+          ...payload,
+          id: Date.now(),
+          created_at: new Date().toISOString(),
+        };
+      persistLocal([created, ...wantedList]);
       setIsPostModalOpen(false);
       setPostStep("choose");
       setFormData({
-        request_type: "Rent",
-        property_type: "Apartment",
-        township: "",
-        city: lang === "en" ? "Yangon" : "ရန်ကုန်",
-        budget: "",
-        contact_name: "",
-        contact_phone: "",
-        notes: "",
+        ...INITIAL_FORM,
+        city: defaultCity,
       });
       setAlertModal({
         isOpen: true,
@@ -278,9 +278,9 @@ const WantedListingsPage = ({
         };
 
   return (
-    <section className="max-w-7xl mx-auto p-6 space-y-6">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
           <button
             type="button"
@@ -289,7 +289,7 @@ const WantedListingsPage = ({
           >
             {t.backHome}
           </button>
-          <h1 className="text-2xl font-extrabold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
             🔎 {t.title}
           </h1>
           <p className="text-xs md:text-sm text-slate-500">{t.subtitle}</p>
@@ -314,7 +314,7 @@ const WantedListingsPage = ({
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <input
           type="text"
           value={searchTerm}
@@ -345,6 +345,23 @@ const WantedListingsPage = ({
             </option>
           ))}
         </select>
+
+        <button
+          type="button"
+          disabled={!hasFilter}
+          onClick={() => {
+            setSearchTerm("");
+            setFilterType("");
+            setFilterCategory("");
+          }}
+          className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+            hasFilter
+              ? "bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+          }`}
+        >
+          {t.resetBtn}
+        </button>
       </div>
 
       {/* Wanted Cards */}
@@ -354,14 +371,14 @@ const WantedListingsPage = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filteredWanted.map((item) => {
+          {filteredWanted.map((item, idx) => {
             const isBuy = item.request_type === "Buy";
             const dateStr = item.created_at
               ? String(item.created_at).slice(0, 10)
               : "";
             return (
               <div
-                key={item.id}
+                key={item.id || item._id || idx}
                 className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3 hover:shadow-md transition"
               >
                 <div className="flex items-start justify-between gap-2">

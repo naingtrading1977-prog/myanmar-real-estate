@@ -20,12 +20,15 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
         ? "Browse active agents and their listed properties across cities and townships."
         : "လက်ရှိ အိမ်ခြံမြေ ကြော်ငြာများ တင်ဆောင်ထားသော အကျိုးဆောင်များနှင့် မြို့နယ်များ။",
     namePlaceholder:
-      lang === "en" ? "Agent name or ID..." : "အကျိုးဆောင်အမည် သို့မဟုတ် ID...",
+      lang === "en"
+        ? "Agent name, phone, ID or township..."
+        : "အကျိုးဆောင်အမည်၊ ဖုန်း၊ ID သို့မဟုတ် မြို့နယ်...",
     allCities:
       lang === "en" ? "All Cities / Regions" : "တိုင်းနှင့်ပြည်နယ်အားလုံး",
     allTownships: lang === "en" ? "All Townships" : "မြို့နယ်အားလုံး",
     resetBtn: lang === "en" ? "Reset" : "ရှင်းရန်",
     totalAgents: lang === "en" ? "Agents" : "အကျိုးဆောင်",
+    totalListings: lang === "en" ? "Total Listings" : "စုစုပေါင်း ပို့စ်",
     listingsCount: lang === "en" ? "Active Listings" : "တင်ထားသော ပို့စ်",
     viewListings: lang === "en" ? "View Properties" : "အသေးစိတ်ကြည့်ရန်",
     noAgents:
@@ -34,6 +37,8 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
         : "ရွေးချယ်မှုနှင့် ကိုက်ညီသော အကျိုးဆောင် မရှိသေးပါ။",
     agentLabel: lang === "en" ? "Agent" : "အကျိုးဆောင်",
     idLabel: lang === "en" ? "ID" : "ID",
+    phoneLabel: lang === "en" ? "Phone" : "ဖုန်း",
+    addressLabel: lang === "en" ? "Sample Area" : "နမူနာလိပ်စာ",
     townshipsLabel:
       lang === "en" ? "Active Townships" : "ဆောင်ရွက်နေသော မြို့နယ်များ",
     verifiedAgent: lang === "en" ? "Active Agent" : "အကျိုးဆောင်",
@@ -58,32 +63,41 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
         ? rawName.trim()
         : `${t.agentLabel} (${t.idLabel}: ${ownerKey})`;
 
+      const phoneVal = (
+        prop.contact_phone ||
+        prop.phone ||
+        prop.owner_phone ||
+        ""
+      )
+        .toString()
+        .trim();
+
       if (!map.has(ownerKey)) {
         map.set(ownerKey, {
           id: ownerKey,
           name: displayName,
-          phone: prop.contact_phone || "",
+          phone: phoneVal,
           listingsCount: 0,
           cities: new Set(),
           townships: new Set(),
-          sampleAddress: prop.address || "",
+          sampleAddress: (prop.address || "").trim(),
         });
       }
 
       const entry = map.get(ownerKey);
       entry.listingsCount += 1;
 
-      if (prop.city) {
-        entry.cities.add(prop.city.trim());
+      if (prop.city && String(prop.city).trim()) {
+        entry.cities.add(String(prop.city).trim());
       }
-      if (prop.township) {
-        entry.townships.add(prop.township.trim());
+      if (prop.township && String(prop.township).trim()) {
+        entry.townships.add(String(prop.township).trim());
       }
-      if (!entry.phone && prop.contact_phone) {
-        entry.phone = prop.contact_phone;
+      if (!entry.phone && phoneVal) {
+        entry.phone = phoneVal;
       }
-      if (!entry.sampleAddress && prop.address) {
-        entry.sampleAddress = prop.address;
+      if (!entry.sampleAddress && prop.address && String(prop.address).trim()) {
+        entry.sampleAddress = String(prop.address).trim();
       }
     });
 
@@ -118,10 +132,14 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
         const idMatch = String(agent.id || "")
           .toLowerCase()
           .includes(q);
+        const phoneMatch = (agent.phone || "").toLowerCase().includes(q);
         const townMatch = agent.townships.some((tw) =>
           tw.toLowerCase().includes(q),
         );
-        if (!nameMatch && !idMatch && !townMatch) return false;
+        const cityMatch = agent.cities.some((c) => c.toLowerCase().includes(q));
+        if (!nameMatch && !idMatch && !phoneMatch && !townMatch && !cityMatch) {
+          return false;
+        }
       }
 
       if (selectedCity && !agent.cities.includes(selectedCity)) {
@@ -136,6 +154,11 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
     });
   }, [agentsList, searchTerm, selectedCity, selectedTownship]);
 
+  const filteredListingsTotal = useMemo(
+    () => filteredAgents.reduce((sum, a) => sum + (a.listingsCount || 0), 0),
+    [filteredAgents],
+  );
+
   const handleViewAgentListings = (agent) => {
     if (typeof onSelectAgentFilter === "function") {
       onSelectAgentFilter(agent);
@@ -148,9 +171,9 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
   );
 
   return (
-    <section className="max-w-7xl mx-auto p-6 space-y-6">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
           <button
             type="button"
@@ -159,15 +182,20 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
           >
             {t.backHome}
           </button>
-          <h1 className="text-2xl font-extrabold text-slate-900 border-b-2 border-emerald-500 pb-1 inline-block">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 border-b-2 border-emerald-500 pb-1 inline-block">
             {t.title}
           </h1>
           <p className="text-xs md:text-sm text-slate-500 pt-1">{t.subtitle}</p>
         </div>
 
-        <span className="self-start md:self-center bg-emerald-100 text-emerald-800 text-xs font-bold px-3.5 py-1.5 rounded-full">
-          {filteredAgents.length} {t.totalAgents}
-        </span>
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
+          <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3.5 py-1.5 rounded-full">
+            {filteredAgents.length} {t.totalAgents}
+          </span>
+          <span className="bg-slate-100 text-slate-700 text-xs font-bold px-3.5 py-1.5 rounded-full">
+            {filteredListingsTotal} {t.totalListings}
+          </span>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -269,11 +297,34 @@ const AgentsPage = ({ properties = [], language, onSelectAgentFilter }) => {
                     <span className="font-medium text-slate-800">
                       {agent.townships.length > 0
                         ? agent.townships.join("၊ ")
-                        : lang === "en"
-                          ? "Yangon"
-                          : "ရန်ကုန်"}
+                        : agent.cities.length > 0
+                          ? agent.cities.join("၊ ")
+                          : lang === "en"
+                            ? "Yangon"
+                            : "ရန်ကုန်"}
                     </span>
                   </p>
+
+                  {(agent.phone || agent.sampleAddress) && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                      {agent.phone && (
+                        <span>
+                          📞 {t.phoneLabel}:{" "}
+                          <a
+                            href={`tel:${agent.phone}`}
+                            className="font-semibold text-emerald-700 hover:underline"
+                          >
+                            {agent.phone}
+                          </a>
+                        </span>
+                      )}
+                      {agent.sampleAddress && (
+                        <span className="truncate max-w-md">
+                          🏠 {t.addressLabel}: {agent.sampleAddress}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

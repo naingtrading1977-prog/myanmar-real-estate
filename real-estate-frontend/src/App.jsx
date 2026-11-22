@@ -21,6 +21,17 @@ const WantedListingsPage = lazy(
 );
 const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
 
+const INITIAL_FILTER = {
+  listingType: "",
+  category: "",
+  township: "",
+  minPrice: "",
+  maxPrice: "",
+  searchQuery: "",
+  agentId: "",
+  agentName: "",
+};
+
 function App() {
   const location = useLocation();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -37,18 +48,11 @@ function App() {
 
   const [brokenImageKeys, setBrokenImageKeys] = useState({});
 
-  // 🌐 Language & Phase 1 Category Filter States
+  // 🌐 Language & Filter States
   const [language, setLanguage] = useState(
     localStorage.getItem("app_lang") || "mm",
   );
-  const [activeFilter, setActiveFilter] = useState({
-    listingType: "",
-    category: "",
-    township: "",
-    minPrice: "",
-    maxPrice: "",
-    searchQuery: "",
-  });
+  const [activeFilter, setActiveFilter] = useState(INITIAL_FILTER);
 
   const dispatch = useDispatch();
   const { user, isAuthenticated } = useSelector((state) => state.auth);
@@ -216,9 +220,35 @@ function App() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [activeProperties]);
 
-  // 🔎 Navbar Category & Listing Type Filter
+  // 🔎 Filter Logic
   const filteredProperties = useMemo(() => {
     return activeProperties.filter((item) => {
+      if (activeFilter.agentId || activeFilter.agentName) {
+        const itemOwnerKey = String(
+          item.owner_id || item.user_id || item.agent_id || item.id || "",
+        );
+        const itemAgentName = String(
+          item.owner_name ||
+            item.agent_name ||
+            item.user_name ||
+            item.contact_name ||
+            "",
+        )
+          .trim()
+          .toLowerCase();
+
+        const matchesId =
+          activeFilter.agentId &&
+          itemOwnerKey === String(activeFilter.agentId).trim();
+        const matchesName =
+          activeFilter.agentName &&
+          itemAgentName === String(activeFilter.agentName).trim().toLowerCase();
+
+        if (!matchesId && !matchesName) {
+          return false;
+        }
+      }
+
       if (activeFilter.listingType) {
         const itemType = (item.listing_type || "").toLowerCase();
         if (itemType !== activeFilter.listingType.toLowerCase()) {
@@ -316,6 +346,18 @@ function App() {
     return () => clearInterval(interval);
   }, [displayedProperties]);
 
+  const resetAllFilters = () => {
+    setActiveFilter(INITIAL_FILTER);
+  };
+
+  const handleSelectAgentFilter = (agent) => {
+    setActiveFilter({
+      ...INITIAL_FILTER,
+      agentId: agent?.id ? String(agent.id) : "",
+      agentName: agent?.name ? String(agent.name) : "",
+    });
+  };
+
   const handleCardClick = (item) => {
     setSelectedProperty(item);
     setIsDetailModalOpen(true);
@@ -388,7 +430,14 @@ function App() {
   };
 
   const hasActiveFilter = Boolean(
-    activeFilter.listingType || activeFilter.category,
+    activeFilter.listingType ||
+    activeFilter.category ||
+    activeFilter.township ||
+    activeFilter.minPrice !== "" ||
+    activeFilter.maxPrice !== "" ||
+    activeFilter.searchQuery.trim() ||
+    activeFilter.agentId ||
+    activeFilter.agentName,
   );
 
   const formatPrice = (rawPrice) => {
@@ -406,18 +455,20 @@ function App() {
           onLogout={() => dispatch(logout())}
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenPostModal={() => setIsAddPropertyOpen(true)}
-          onSelectCategory={(filterObj) => setActiveFilter(filterObj)}
+          onSelectCategory={(filterObj) =>
+            setActiveFilter({ ...INITIAL_FILTER, ...filterObj })
+          }
           language={language}
           onChangeLanguage={(nextLang) => setLanguage(nextLang)}
         />
 
-        <div className="bg-emerald-600 text-white py-2 px-4 shadow-inner flex items-center">
-          <span className="bg-emerald-700 text-xs font-bold px-2 py-1 rounded mr-3 uppercase tracking-wider">
+        <div className="bg-emerald-600 text-white py-2 px-3 sm:px-4 shadow-inner flex items-center gap-2.5 overflow-hidden">
+          <span className="bg-emerald-700 text-[11px] sm:text-xs font-bold px-2 py-1 rounded uppercase tracking-wider shrink-0">
             {t.adBadge}
           </span>
-          <marquee scrollamount="5" className="text-sm font-medium">
+          <p className="text-xs sm:text-sm font-medium truncate">
             {t.marqueeText}
-          </marquee>
+          </p>
         </div>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6">
@@ -433,6 +484,7 @@ function App() {
                 properties={activeProperties}
                 language={language}
                 onSelectProperty={handleCardClick}
+                onSelectAgentFilter={handleSelectAgentFilter}
               />
             ) : location.pathname === "/wanted" ? (
               <WantedListingsPage
@@ -516,16 +568,7 @@ function App() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setActiveFilter({
-                        listingType: "",
-                        category: "",
-                        township: "",
-                        minPrice: "",
-                        maxPrice: "",
-                        searchQuery: "",
-                      })
-                    }
+                    onClick={resetAllFilters}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-xl px-3 py-2 transition cursor-pointer"
                   >
                     {t.clearFilter}
@@ -536,6 +579,11 @@ function App() {
                   <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs md:text-sm">
                     <div className="flex flex-wrap items-center gap-2 font-medium text-emerald-900">
                       <span>{t.showingFilter}</span>
+                      {activeFilter.agentName && (
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 rounded-full font-bold text-xs">
+                          👤 {activeFilter.agentName}
+                        </span>
+                      )}
                       {activeFilter.listingType && (
                         <span className="bg-emerald-600 text-white px-2.5 py-0.5 rounded-full font-bold text-xs">
                           {activeFilter.listingType}
@@ -566,16 +614,7 @@ function App() {
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        setActiveFilter({
-                          listingType: "",
-                          category: "",
-                          township: "",
-                          minPrice: "",
-                          maxPrice: "",
-                          searchQuery: "",
-                        })
-                      }
+                      onClick={resetAllFilters}
                       className="text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
                     >
                       {t.clearFilter}
@@ -628,16 +667,7 @@ function App() {
                       {hasActiveFilter && (
                         <button
                           type="button"
-                          onClick={() =>
-                            setActiveFilter({
-                              listingType: "",
-                              category: "",
-                              township: "",
-                              minPrice: "",
-                              maxPrice: "",
-                              searchQuery: "",
-                            })
-                          }
+                          onClick={resetAllFilters}
                           className="px-4 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition cursor-pointer"
                         >
                           {t.clearFilter}
@@ -867,6 +897,7 @@ function App() {
           isOpen={isAddPropertyOpen}
           onClose={() => setIsAddPropertyOpen(false)}
           onPropertyAdded={fetchPropertiesData}
+          language={language}
         />
       )}
 
@@ -876,6 +907,7 @@ function App() {
           onClose={() => setIsEditModalOpen(false)}
           property={selectedProperty}
           onPropertyUpdated={fetchPropertiesData}
+          language={language}
         />
       )}
 
