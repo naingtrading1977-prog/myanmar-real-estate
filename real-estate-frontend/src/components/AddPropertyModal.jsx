@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import API from "../api/axios";
 import { useSelector } from "react-redux";
 import { createProperty } from "../api/propertyApi";
@@ -16,9 +16,43 @@ const INITIAL_BROKER_FORM = {
   note: "ညှိနှိုင်း",
 };
 
+const OWNERSHIP_DOCUMENT_OPTIONS = [
+  "ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား",
+  "ပါမစ်မြေ – အရှုပ်အရှင်းကင်း၊ စည်ပင်စစ်ပြီး",
+  "ဘိုးဘွားပိုင်မြေ (Freehold)",
+  "တိုက်ခန်း (Apartment)",
+  "လုပ်အားပေးစာအုပ်",
+  "ရွာမြေ",
+  "ဥယျာဥ်ခြံမြေ",
+  "လယ်မြေ (လန 30 ကျပြီး)",
+  "အငှားစာချုပ် / ငှားရမ်းခွင့်ပြုချက် (Lease Agreement)",
+  "စီးပွားရေးလုပ်ငန်းလိုင်စင် / စည်ပင်ခွင့်ပြုချက်",
+  "စားသောက်ဆိုင်လိုင်စင် / ကျန်းမာရေးနှင့် မီးသတ်ထောက်ခံချက်",
+  "အခြား (Other)",
+];
+
 const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   const { user } = useSelector((state) => state.auth);
   const [userCoins, setUserCoins] = useState(0);
+
+  const [isOwnershipOpen, setIsOwnershipOpen] = useState(false);
+  const ownershipDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOwnershipOpen) return;
+
+    const handleOutsideClick = (e) => {
+      if (
+        ownershipDropdownRef.current &&
+        !ownershipDropdownRef.current.contains(e.target)
+      ) {
+        setIsOwnershipOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isOwnershipOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -546,49 +580,54 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
               />
             </div>
 
-            <div>
+            <div ref={ownershipDropdownRef} className="relative">
               <label
-                htmlFor="ownership_document"
+                htmlFor="ownership_document_btn"
                 className="block text-sm font-medium text-gray-700"
               >
                 Ownership Document (ပိုင်ဆိုင်မှု စာရွက်စာတမ်း)
               </label>
-              <select
-                id="ownership_document"
-                name="ownership_document"
-                value={formData.ownership_document}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+
+              <button
+                id="ownership_document_btn"
+                type="button"
+                onClick={() => setIsOwnershipOpen((prev) => !prev)}
+                className="w-full border border-gray-300 rounded-lg p-2.5 mt-1 bg-white text-slate-800 text-sm text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 flex items-center justify-between gap-2"
               >
-                <option value="ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား">
-                  ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား
-                </option>
-                <option value="ပါမစ်မြေ – အရှုပ်အရှင်းကင်း၊ စည်ပင်စစ်ပြီး">
-                  ပါမစ်မြေ – အရှုပ်အရှင်းကင်း၊ စည်ပင်စစ်ပြီး
-                </option>
-                <option value="ဘိုးဘွားပိုင်မြေ (Freehold)">
-                  ဘိုးဘွားပိုင်မြေ (Freehold)
-                </option>
-                <option value="တိုက်ခန်း (Apartment)">
-                  တိုက်ခန်း (Apartment)
-                </option>
-                <option value="လုပ်အားပေးစာအုပ်">လုပ်အားပေးစာအုပ်</option>
-                <option value="ရွာမြေ">ရွာမြေ</option>
-                <option value="ဥယျာဥ်ခြံမြေ">ဥယျာဥ်ခြံမြေ</option>
-                <option value="လယ်မြေ (လန 30 ကျပြီး)">
-                  လယ်မြေ (လန 30 ကျပြီး)
-                </option>
-                <option value="အငှားစာချုပ် / ငှားရမ်းခွင့်ပြုချက် (Lease Agreement)">
-                  အငှားစာချုပ် / ငှားရမ်းခွင့်ပြုချက် (Lease Agreement)
-                </option>
-                <option value="စီးပွားရေးလုပ်ငန်းလိုင်စင် / စည်ပင်ခွင့်ပြုချက်">
-                  စီးပွားရေးလုပ်ငန်းလိုင်စင် / စည်ပင်ခွင့်ပြုချက်
-                </option>
-                <option value="စားသောက်ဆိုင်လိုင်စင် / ကျန်းမာရေးနှင့် မီးသတ်ထောက်ခံချက်">
-                  စားသောက်ဆိုင်လိုင်စင် / ကျန်းမာရေးနှင့် မီးသတ်ထောက်ခံချက်
-                </option>
-                <option value="အခြား (Other)">အခြား (Other)</option>
-              </select>
+                <span className="truncate">{formData.ownership_document}</span>
+                <span className="text-slate-500 text-xs shrink-0">
+                  {isOwnershipOpen ? "▲" : "▼"}
+                </span>
+              </button>
+
+              {isOwnershipOpen && (
+                <div className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg divide-y divide-slate-100">
+                  {OWNERSHIP_DOCUMENT_OPTIONS.map((optionText) => {
+                    const isSelected =
+                      formData.ownership_document === optionText;
+                    return (
+                      <button
+                        key={optionText}
+                        type="button"
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            ownership_document: optionText,
+                          }));
+                          setIsOwnershipOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2.5 text-sm transition cursor-pointer ${
+                          isSelected
+                            ? "bg-emerald-50 text-emerald-800 font-semibold"
+                            : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {optionText}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {["Apartment", "Condo", "Commercial", "Restaurant"].includes(

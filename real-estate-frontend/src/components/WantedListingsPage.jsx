@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+
 import API from "../api/axios";
 
 const STORAGE_KEY = "wwa_wanted_listings_v1";
@@ -127,23 +128,23 @@ const WantedListingsPage = ({
   );
 
   // Sync URL query params (?type=Buy|Rent and ?openPost=1)
+  const urlType = searchParams.get("type");
+  const effectiveFilterType =
+    urlType === "Buy" || urlType === "Rent" ? urlType : filterType;
+
   useEffect(() => {
-    const queryType = searchParams.get("type");
-    const shouldOpenPost = searchParams.get("openPost") === "1";
+    if (searchParams.get("openPost") !== "1") return;
 
-    if (queryType === "Buy" || queryType === "Rent") {
-      setFilterType(queryType);
-    } else if (!queryType) {
-      setFilterType("");
-    }
+    const queryType = searchParams.get("type") || "";
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("openPost");
+    setSearchParams(nextParams, { replace: true });
 
-    if (shouldOpenPost) {
-      openModalWithChoice(queryType || "");
+    const timer = setTimeout(() => {
+      openModalWithChoice(queryType);
+    }, 0);
 
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.delete("openPost");
-      setSearchParams(nextParams, { replace: true });
-    }
+    return () => clearTimeout(timer);
   }, [searchParams, setSearchParams, openModalWithChoice]);
 
   const getCategoryLabel = (cat) => {
@@ -207,7 +208,9 @@ const WantedListingsPage = ({
   const filteredWanted = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return wantedList.filter((item) => {
-      if (filterType && item.request_type !== filterType) return false;
+      if (effectiveFilterType && item.request_type !== effectiveFilterType) {
+        return false;
+      }
       if (filterCategory && item.property_type !== filterCategory) return false;
       if (q) {
         const hay = [
@@ -225,7 +228,7 @@ const WantedListingsPage = ({
       }
       return true;
     });
-  }, [wantedList, searchTerm, filterType, filterCategory]);
+  }, [wantedList, searchTerm, effectiveFilterType, filterCategory]);
 
   const handleCreateWanted = async (e) => {
     e.preventDefault();
@@ -348,8 +351,19 @@ const WantedListingsPage = ({
         />
 
         <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
+          value={effectiveFilterType}
+          onChange={(e) => {
+            const nextType = e.target.value;
+            setFilterType(nextType);
+
+            const nextParams = new URLSearchParams(searchParams);
+            if (nextType === "Buy" || nextType === "Rent") {
+              nextParams.set("type", nextType);
+            } else {
+              nextParams.delete("type");
+            }
+            setSearchParams(nextParams, { replace: true });
+          }}
           className="border border-slate-200 bg-slate-50 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         >
           <option value="">{t.allTypes}</option>
@@ -822,4 +836,4 @@ const WantedListingsPage = ({
   );
 };
 
-export default WantedListingsPage;
+export default React.memo(WantedListingsPage);

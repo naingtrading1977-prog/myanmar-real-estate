@@ -1,4 +1,11 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import { useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import Navbar from "./components/Navbar";
@@ -157,7 +164,7 @@ function App() {
     setProperties(formattedProperties);
   };
 
-  const fetchPropertiesData = async () => {
+  const fetchPropertiesData = useCallback(async () => {
     try {
       const res = await getProperties();
       const rawData = res.data || res;
@@ -165,7 +172,19 @@ function App() {
     } catch (err) {
       console.error("Failed to load properties", err);
     }
-  };
+  }, []);
+
+  const handleOpenAddProperty = useCallback(() => {
+    setIsAddPropertyOpen(true);
+  }, []);
+
+  const handleCloseAddProperty = useCallback(() => {
+    setIsAddPropertyOpen(false);
+  }, []);
+
+  const handlePropertyAdded = useCallback(() => {
+    fetchPropertiesData();
+  }, [fetchPropertiesData]);
 
   // 🔄 Component စတက်လာချိန်တွင် ဒေတာဆွဲထုတ်ခြင်း
   useEffect(() => {
@@ -327,8 +346,10 @@ function App() {
     [latestProperties],
   );
 
-  // 🔄 ပုံများကို ၃ စက္ကန့်တစ်ကြိမ် အလိုအလျောက် Slide ဖြစ်စေရန်
+  // 🔄 Modal ပွင့်နေချိန်မှာ background slideshow re-render မဖြစ်အောင် ခဏရပ်ထားမည်
   useEffect(() => {
+    if (isAddPropertyOpen) return;
+
     const interval = setInterval(() => {
       setCardImageIndices((prev) => {
         const updated = { ...prev };
@@ -344,19 +365,28 @@ function App() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [displayedProperties]);
+  }, [displayedProperties, isAddPropertyOpen]);
 
   const resetAllFilters = () => {
     setActiveFilter(INITIAL_FILTER);
   };
 
-  const handleSelectAgentFilter = (agent) => {
+  const handleSelectAgentFilter = useCallback((agent) => {
     setActiveFilter({
       ...INITIAL_FILTER,
       agentId: agent?.id ? String(agent.id) : "",
       agentName: agent?.name ? String(agent.name) : "",
     });
-  };
+  }, []);
+
+  const handleSelectCategory = useCallback((filterObj) => {
+    setActiveFilter({ ...INITIAL_FILTER, ...filterObj });
+  }, []);
+
+  const handleChangeLanguage = useCallback((nextLang) => {
+    setLanguage(nextLang);
+    localStorage.setItem("app_lang", nextLang);
+  }, []);
 
   const handleCardClick = (item) => {
     setSelectedProperty(item);
@@ -454,12 +484,10 @@ function App() {
           isAuthenticated={isAuthenticated}
           onLogout={() => dispatch(logout())}
           onOpenAuth={() => setIsAuthOpen(true)}
-          onOpenPostModal={() => setIsAddPropertyOpen(true)}
-          onSelectCategory={(filterObj) =>
-            setActiveFilter({ ...INITIAL_FILTER, ...filterObj })
-          }
+          onOpenPostModal={handleOpenAddProperty}
+          onSelectCategory={handleSelectCategory}
           language={language}
-          onChangeLanguage={(nextLang) => setLanguage(nextLang)}
+          onChangeLanguage={handleChangeLanguage}
         />
 
         <div className="bg-emerald-600 text-white py-2 px-3 sm:px-4 shadow-inner flex items-center gap-2.5 overflow-hidden">
@@ -895,8 +923,8 @@ function App() {
       {isAddPropertyOpen && (
         <AddPropertyModal
           isOpen={isAddPropertyOpen}
-          onClose={() => setIsAddPropertyOpen(false)}
-          onPropertyAdded={fetchPropertiesData}
+          onClose={handleCloseAddProperty}
+          onPropertyAdded={handlePropertyAdded}
           language={language}
         />
       )}
