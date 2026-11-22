@@ -5,6 +5,25 @@ import { createProperty } from "../api/propertyApi";
 import CustomModal from "./CustomModal";
 import { calculateAreaFromInput } from "../utils/propertyHelpers";
 
+const DRAFT_STORAGE_KEY = "mre_add_property_draft_v1";
+
+const INITIAL_FORM_DATA = {
+  title: "",
+  description: "",
+  price: "",
+  area_sqft: "",
+  dimensions_label: "",
+  type: "Apartment",
+  listing_type: "Sale",
+  township: "",
+  address: "",
+  lat: "",
+  lng: "",
+  contact_phone: "",
+  ownership_document: "ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား",
+  building_status: "BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး",
+};
+
 const INITIAL_BROKER_FORM = {
   facing: "မြောက်အလှည့်",
   utilities: "ရေမီးစုံ",
@@ -31,12 +50,46 @@ const OWNERSHIP_DOCUMENT_OPTIONS = [
   "အခြား (Other)",
 ];
 
+const loadSavedDraft = () => {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
 const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   const { user } = useSelector((state) => state.auth);
-  const [userCoins, setUserCoins] = useState(0);
+  const savedDraft = loadSavedDraft();
 
+  const [userCoins, setUserCoins] = useState(0);
   const [isOwnershipOpen, setIsOwnershipOpen] = useState(false);
   const ownershipDropdownRef = useRef(null);
+
+  const [formData, setFormData] = useState(() => ({
+    ...INITIAL_FORM_DATA,
+    ...(savedDraft?.formData || {}),
+  }));
+
+  const [isBrokerBuilderOpen, setIsBrokerBuilderOpen] = useState(false);
+  const [brokerForm, setBrokerForm] = useState(() => ({
+    ...INITIAL_BROKER_FORM,
+    ...(savedDraft?.brokerForm || {}),
+  }));
+
+  const [files, setFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
 
   useEffect(() => {
     if (!isOwnershipOpen) return;
@@ -83,49 +136,36 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const requiredCoins = 30;
-  const hasEnoughCoins = userCoins >= requiredCoins;
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      localStorage.setItem(
+        DRAFT_STORAGE_KEY,
+        JSON.stringify({ formData, brokerForm }),
+      );
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+    }
+  }, [isOpen, formData, brokerForm]);
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    price: "",
-    area_sqft: "",
-    dimensions_label: "",
-    type: "Apartment",
-    listing_type: "Sale",
-    township: "",
-    address: "",
-    lat: "",
-    lng: "",
-    contact_phone: "",
-    ownership_document: "ဂရန်မြေ (Grant Land) - လူနေထိုင်ခွင့်ပြီးသား",
-    building_status: "BCC ကျပြီး / လူနေထိုင်ခွင့် ကျပြီး",
-  });
-
-  // 📝 Broker Form Helper States
-  const [isBrokerBuilderOpen, setIsBrokerBuilderOpen] = useState(false);
-  const [brokerForm, setBrokerForm] = useState(INITIAL_BROKER_FORM);
-
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const [modalConfig, setModalConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    type: "info",
-  });
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach((item) => {
+        if (item.url) URL.revokeObjectURL(item.url);
+      });
+    };
+  }, [imagePreviews]);
 
   if (!isOpen) return null;
+
+  const requiredCoins = 30;
+  const hasEnoughCoins = userCoins >= requiredCoins;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 📐 Tab ထွက်သွားချိန် (onBlur) တွင် Auto Square တွက်ပေးမည့် Function
   const handleAreaBlur = () => {
     const rawValue = formData.dimensions_label || formData.area_sqft;
     if (!rawValue) return;
@@ -195,7 +235,29 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
   };
 
   const handleFileChange = (e) => {
-    setFiles(e.target.files);
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    setFiles((prev) => [...prev, ...selectedFiles]);
+
+    const nextPreviews = selectedFiles.map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+      name: file.name,
+      isImage: file.type.startsWith("image/"),
+      url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+    }));
+
+    setImagePreviews((prev) => [...prev, ...nextPreviews]);
+    e.target.value = "";
+  };
+
+  const handleRemoveFile = (indexToRemove) => {
+    setImagePreviews((prev) => {
+      const target = prev[indexToRemove];
+      if (target?.url) URL.revokeObjectURL(target.url);
+      return prev.filter((_, idx) => idx !== indexToRemove);
+    });
+    setFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleGetLocation = () => {
@@ -301,6 +363,16 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
       }
 
       await createProperty(uploadData);
+
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      imagePreviews.forEach((item) => {
+        if (item.url) URL.revokeObjectURL(item.url);
+      });
+      setImagePreviews([]);
+      setFiles([]);
+      setFormData(INITIAL_FORM_DATA);
+      setBrokerForm(INITIAL_BROKER_FORM);
+
       if (typeof onPropertyAdded === "function") {
         onPropertyAdded();
       }
@@ -844,6 +916,36 @@ const AddPropertyModal = ({ isOpen, onClose, onPropertyAdded }) => {
                 onChange={handleFileChange}
                 className="w-full text-sm text-gray-500 mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
               />
+
+              {imagePreviews.length > 0 && (
+                <div className="mt-3 grid grid-cols-3 gap-2.5">
+                  {imagePreviews.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="relative rounded-lg border border-slate-200 bg-slate-50 p-1.5"
+                    >
+                      {item.isImage && item.url ? (
+                        <img
+                          src={item.url}
+                          alt={item.name}
+                          className="h-20 w-full object-cover rounded-md"
+                        />
+                      ) : (
+                        <div className="h-20 w-full flex items-center justify-center text-[11px] text-slate-600 px-1 text-center break-all">
+                          📄 {item.name}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(idx)}
+                        className="mt-1 w-full text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded py-0.5 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button

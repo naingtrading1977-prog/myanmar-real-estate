@@ -39,6 +39,17 @@ const INITIAL_FILTER = {
   agentName: "",
 };
 
+const optimizeCloudinaryUrl = (url, width = 600) => {
+  if (!url || typeof url !== "string") return url;
+  if (!url.includes("res.cloudinary.com") || !url.includes("/upload/")) {
+    return url;
+  }
+  if (url.includes("/upload/w_") || url.includes("/upload/f_auto")) {
+    return url;
+  }
+  return url.replace("/upload/", `/upload/w_${width},q_auto,f_auto/`);
+};
+
 function App() {
   const location = useLocation();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -164,9 +175,9 @@ function App() {
     setProperties(formattedProperties);
   };
 
-  const fetchPropertiesData = useCallback(async () => {
+  const fetchPropertiesData = useCallback(async (forceRefresh = false) => {
     try {
-      const res = await getProperties();
+      const res = await getProperties({ forceRefresh });
       const rawData = res.data || res;
       formatAndSetProperties(rawData);
     } catch (err) {
@@ -183,7 +194,7 @@ function App() {
   }, []);
 
   const handlePropertyAdded = useCallback(() => {
-    fetchPropertiesData();
+    fetchPropertiesData(true);
   }, [fetchPropertiesData]);
 
   // 🔄 Component စတက်လာချိန်တွင် ဒေတာဆွဲထုတ်ခြင်း
@@ -404,7 +415,7 @@ function App() {
     if (window.confirm(t.confirmDelete)) {
       try {
         await deleteProperty(id);
-        fetchPropertiesData();
+        await fetchPropertiesData(true);
       } catch (err) {
         console.error("Failed to delete property", err);
         alert(t.deleteError);
@@ -449,14 +460,14 @@ function App() {
     if (!imgPath) return "";
 
     if (imgPath.startsWith("http://") || imgPath.startsWith("https://")) {
-      return imgPath;
+      return optimizeCloudinaryUrl(imgPath, 600);
     }
 
     const formattedPath = imgPath.startsWith("/") ? imgPath : `/${imgPath}`;
     const API_HOST = import.meta.env.VITE_API_URL || "http://localhost:5002";
     const baseURL = API_HOST.replace(/\/api$/, "");
 
-    return `${baseURL}${formattedPath}`;
+    return optimizeCloudinaryUrl(`${baseURL}${formattedPath}`, 600);
   };
 
   const hasActiveFilter = Boolean(
@@ -934,7 +945,7 @@ function App() {
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           property={selectedProperty}
-          onPropertyUpdated={fetchPropertiesData}
+          onPropertyUpdated={() => fetchPropertiesData(true)}
           language={language}
         />
       )}
@@ -944,7 +955,7 @@ function App() {
           isOpen={isDetailModalOpen}
           onClose={() => setIsDetailModalOpen(false)}
           property={selectedProperty}
-          onPropertyUpdated={fetchPropertiesData}
+          onPropertyUpdated={() => fetchPropertiesData(true)}
           language={language}
         />
       )}
